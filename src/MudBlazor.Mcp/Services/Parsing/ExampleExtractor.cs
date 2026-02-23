@@ -45,13 +45,30 @@ public sealed partial class ExampleExtractor
         // Case-insensitive directory lookup for cross-platform compatibility
         if (!Directory.Exists(componentDocsPath) && Directory.Exists(parentDir))
         {
-            var match = Directory.GetDirectories(parentDir)
-                .FirstOrDefault(d => Path.GetFileName(d)
-                    .Equals(folderName, StringComparison.OrdinalIgnoreCase));
-            
-            if (match is not null)
+            try
             {
-                componentDocsPath = match;
+                var match = Directory.GetDirectories(parentDir)
+                    .FirstOrDefault(d => Path.GetFileName(d)
+                        .Equals(folderName, StringComparison.OrdinalIgnoreCase));
+
+                if (match is not null)
+                {
+                    componentDocsPath = match;
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to enumerate directories under {ParentDir} due to insufficient access while resolving docs folder for component {ComponentName}. Returning no examples.",
+                    parentDir, componentName);
+                return examples;
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning(ex,
+                    "I/O error while enumerating directories under {ParentDir} when resolving docs folder for component {ComponentName}. Returning no examples.",
+                    parentDir, componentName);
+                return examples;
             }
         }
 
