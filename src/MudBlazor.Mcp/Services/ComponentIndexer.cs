@@ -119,22 +119,31 @@ public sealed class ComponentIndexer : IComponentIndexer
     {
         var dirName = Path.GetFileName(componentDir);
         
-        // Find the main component file (e.g., MudButton.razor.cs or MudButton.cs)
-        var razorCsFile = Directory.GetFiles(componentDir, "Mud*.razor.cs").FirstOrDefault();
-        var csFile = Directory.GetFiles(componentDir, "Mud*.cs")
-            .FirstOrDefault(f => !f.EndsWith(".razor.cs"));
-
-        var mainFile = razorCsFile ?? csFile;
+        // Collect all Mud*.razor.cs files
+        var razorCsFiles = Directory.GetFiles(componentDir, "Mud*.razor.cs");
         
-        if (mainFile is null)
-        {
-            _logger.LogDebug("No main component file found in: {Dir}", dirName);
-            return;
-        }
+        // Collect Mud*.cs files that don't have a corresponding .razor.cs file
+        var razorCsSet = new HashSet<string>(
+            razorCsFiles.Select(f => f[..^".razor.cs".Length]),
+            StringComparer.OrdinalIgnoreCase);
+        
+        var csOnlyFiles = Directory.GetFiles(componentDir, "Mud*.cs")
+            .Where(f => !f.EndsWith(".razor.cs", StringComparison.OrdinalIgnoreCase)
+                        && !razorCsSet.Contains(f[..^".cs".Length]));
 
+        var allFiles = razorCsFiles.Concat(csOnlyFiles);
+
+        foreach (var file in allFiles)
+        {
+            await IndexSingleComponentFileAsync(file, dirName, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task IndexSingleComponentFileAsync(string filePath, string dirName, CancellationToken cancellationToken)
+    {
         try
         {
-            var parseResult = await _xmlParser.ParseComponentFileAsync(mainFile, cancellationToken).ConfigureAwait(false);
+            var parseResult = await _xmlParser.ParseComponentFileAsync(filePath, cancellationToken).ConfigureAwait(false);
             
             if (parseResult is null)
             {

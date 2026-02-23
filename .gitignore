@@ -419,3 +419,5 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+src/MudBlazor.Mcp/data/mudblazor-repo

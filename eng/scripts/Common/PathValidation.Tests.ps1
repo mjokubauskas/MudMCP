@@ -283,8 +283,8 @@ Describe 'Test-IisResourceName' {
             { Test-IisResourceName -Name 'My Website' -ResourceType 'website' } | Should -Throw '*Invalid*'
         }
 
-        It 'Should throw for name with dots' {
-            { Test-IisResourceName -Name 'My.Website' -ResourceType 'website' } | Should -Throw '*Invalid*'
+        It 'Should not throw for name with dots' {
+            { Test-IisResourceName -Name 'My.Website' -ResourceType 'website' } | Should -Not -Throw
         }
 
         It 'Should throw for name with special characters' {

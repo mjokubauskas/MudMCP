@@ -10,8 +10,26 @@ using MudBlazor.Mcp.Services.Parsing;
 
 namespace MudBlazor.Mcp.Tests.Services;
 
-public class ComponentIndexerTests
+public class ComponentIndexerTests : IDisposable
 {
+    private readonly List<string> _tempDirs = [];
+
+    public void Dispose()
+    {
+        foreach (var dir in _tempDirs)
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
+    private string CreateTempRepoDir()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "mudmcp-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        _tempDirs.Add(dir);
+        return dir;
+    }
+
     private static ComponentIndexer CreateIndexer(
         IGitRepositoryService? gitService = null,
         IDocumentationCache? cache = null,
@@ -140,5 +158,109 @@ public class ComponentIndexerTests
         // Act & Assert - TaskCanceledException derives from OperationCanceledException
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => 
             indexer.BuildIndexAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_WithMultipleRazorCsFiles_IndexesAllComponents()
+    {
+        // Arrange - create a temp repo with multiple .razor.cs files in one directory
+        var repoPath = CreateTempRepoDir();
+        var buttonDir = Path.Combine(repoPath, "src", "MudBlazor", "Components", "Button");
+        Directory.CreateDirectory(buttonDir);
+
+        await File.WriteAllTextAsync(Path.Combine(buttonDir, "MudButton.razor.cs"), """
+            namespace MudBlazor;
+            public partial class MudButton : MudBaseButton
+            {
+                [Parameter] public string? Label { get; set; }
+            }
+            """);
+
+        await File.WriteAllTextAsync(Path.Combine(buttonDir, "MudIconButton.razor.cs"), """
+            namespace MudBlazor;
+            public partial class MudIconButton : MudBaseButton
+            {
+                [Parameter] public string? Icon { get; set; }
+            }
+            """);
+
+        await File.WriteAllTextAsync(Path.Combine(buttonDir, "MudFab.razor.cs"), """
+            namespace MudBlazor;
+            public partial class MudFab : MudBaseButton
+            {
+                [Parameter] public string? StartIcon { get; set; }
+            }
+            """);
+
+        var gitService = new Mock<IGitRepositoryService>();
+        gitService.Setup(g => g.IsAvailable).Returns(true);
+        gitService.Setup(g => g.RepositoryPath).Returns(repoPath);
+        gitService.Setup(g => g.EnsureRepositoryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var indexer = CreateIndexer(gitService: gitService.Object);
+
+        // Act
+        await indexer.BuildIndexAsync();
+
+        // Assert - all three components should be indexed
+        var all = await indexer.GetAllComponentsAsync();
+        Assert.Equal(3, all.Count);
+        Assert.Contains(all, c => c.Name == "MudButton");
+        Assert.Contains(all, c => c.Name == "MudIconButton");
+        Assert.Contains(all, c => c.Name == "MudFab");
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_WithMixedRazorCsAndCsFiles_IndexesBothTypes()
+    {
+        // Arrange - .razor.cs takes precedence over .cs for same component,
+        // but different components in .cs-only form should still be indexed
+        var repoPath = CreateTempRepoDir();
+        var gridDir = Path.Combine(repoPath, "src", "MudBlazor", "Components", "Grid");
+        Directory.CreateDirectory(gridDir);
+
+        await File.WriteAllTextAsync(Path.Combine(gridDir, "MudGrid.razor.cs"), """
+            namespace MudBlazor;
+            public partial class MudGrid : MudComponentBase
+            {
+                [Parameter] public int Spacing { get; set; }
+            }
+            """);
+
+        // This .cs file is for a DIFFERENT component (no corresponding .razor.cs)
+        await File.WriteAllTextAsync(Path.Combine(gridDir, "MudItem.cs"), """
+            namespace MudBlazor;
+            public partial class MudItem : MudComponentBase
+            {
+                [Parameter] public int Xs { get; set; }
+            }
+            """);
+
+        // This .cs file has a corresponding .razor.cs above, so it should NOT be indexed separately
+        await File.WriteAllTextAsync(Path.Combine(gridDir, "MudGrid.cs"), """
+            namespace MudBlazor;
+            public partial class MudGrid
+            {
+                public void SomeMethod() { }
+            }
+            """);
+
+        var gitService = new Mock<IGitRepositoryService>();
+        gitService.Setup(g => g.IsAvailable).Returns(true);
+        gitService.Setup(g => g.RepositoryPath).Returns(repoPath);
+        gitService.Setup(g => g.EnsureRepositoryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var indexer = CreateIndexer(gitService: gitService.Object);
+
+        // Act
+        await indexer.BuildIndexAsync();
+
+        // Assert - MudGrid from .razor.cs and MudItem from .cs
+        var all = await indexer.GetAllComponentsAsync();
+        Assert.Equal(2, all.Count);
+        Assert.Contains(all, c => c.Name == "MudGrid");
+        Assert.Contains(all, c => c.Name == "MudItem");
     }
 }

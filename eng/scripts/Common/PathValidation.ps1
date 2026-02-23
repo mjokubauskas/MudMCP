@@ -198,7 +198,7 @@ function Get-ValidatedPath {
     Validates an IIS resource name.
 
 .DESCRIPTION
-    Checks that a name contains only alphanumeric characters, underscores, and hyphens.
+    Checks that a name contains only alphanumeric characters, dots, underscores, and hyphens.
 
 .PARAMETER Name
     The name to validate.
@@ -219,7 +219,7 @@ function Test-IisResourceName {
         [string]$ResourceType
     )
     
-    if ($Name -notmatch '^[a-zA-Z0-9_-]+$') {
-        throw "Invalid $ResourceType name '$Name'. Only alphanumeric characters, underscores, and hyphens are allowed."
+    if ($Name -notmatch '^[a-zA-Z0-9_.-]+$') {
+        throw "Invalid $ResourceType name '$Name'. Only alphanumeric characters, dots, underscores, and hyphens are allowed."
     }
 }
