@@ -39,7 +39,21 @@ public sealed partial class ExampleExtractor
         // Component examples are typically in: Docs/Pages/Components/{ComponentName}/{ComponentName}*Example.razor
         // The folder name is usually the component name without "Mud" prefix
         var folderName = componentName.StartsWith("Mud") ? componentName[3..] : componentName;
-        var componentDocsPath = Path.Combine(docsPath, "Pages", "Components", folderName);
+        var parentDir = Path.Combine(docsPath, "Pages", "Components");
+        var componentDocsPath = Path.Combine(parentDir, folderName);
+
+        // Case-insensitive directory lookup for cross-platform compatibility
+        if (!Directory.Exists(componentDocsPath) && Directory.Exists(parentDir))
+        {
+            var match = Directory.GetDirectories(parentDir)
+                .FirstOrDefault(d => Path.GetFileName(d)
+                    .Equals(folderName, StringComparison.OrdinalIgnoreCase));
+            
+            if (match is not null)
+            {
+                componentDocsPath = match;
+            }
+        }
 
         if (!Directory.Exists(componentDocsPath))
         {
