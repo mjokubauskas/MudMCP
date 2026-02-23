@@ -129,6 +129,7 @@ Expected response:
 {
   "servers": {
     "mudblazor": {
+      "type": "http",
       "url": "http://localhost:5180/mcp"
     }
   }
