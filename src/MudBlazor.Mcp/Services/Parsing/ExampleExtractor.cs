@@ -178,7 +178,7 @@ public sealed partial class ExampleExtractor
         // Pattern: ButtonGroupExample -> "Group"
         // Pattern: ButtonIconAndLabelExample -> "IconAndLabel"
         
-        if (fileName.StartsWith(baseName))
+        if (fileName.StartsWith(baseName, StringComparison.OrdinalIgnoreCase))
         {
             var remainder = fileName[baseName.Length..];
             if (remainder.EndsWith("Example"))
