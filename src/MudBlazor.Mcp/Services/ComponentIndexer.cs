@@ -123,14 +123,14 @@ public sealed class ComponentIndexer : IComponentIndexer
         var dirName = Path.GetFileName(componentDir);
         
         // Collect all Mud*.razor.cs files
-        var razorCsFiles = Directory.GetFiles(componentDir, "Mud*.razor.cs");
+        var razorCsFiles = Directory.GetFiles(componentDir, $"Mud*{RazorCsExtension}");
         
         // Collect Mud*.cs files that don't have a corresponding .razor.cs file
         var razorCsSet = new HashSet<string>(
             razorCsFiles.Select(f => f[..^RazorCsExtension.Length]),
             StringComparer.OrdinalIgnoreCase);
         
-        var csOnlyFiles = Directory.GetFiles(componentDir, "Mud*.cs")
+        var csOnlyFiles = Directory.GetFiles(componentDir, $"Mud*{CsExtension}")
             .Where(f => !f.EndsWith(RazorCsExtension, StringComparison.OrdinalIgnoreCase)
                         && !razorCsSet.Contains(f[..^CsExtension.Length]));
 
