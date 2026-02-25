@@ -33,6 +33,10 @@ public class ExampleExtractorTests : IDisposable
             {
                 // Ignore access issues during cleanup of temporary directories.
             }
+            catch (DirectoryNotFoundException)
+            {
+                // Ignore if the directory has already been deleted.
+            }
         }
     }
 
