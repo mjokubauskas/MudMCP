@@ -18,7 +18,22 @@ public class ComponentIndexerTests : IDisposable
     {
         foreach (var dir in _tempDirs)
         {
-            try { Directory.Delete(dir, recursive: true); } catch { }
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // Directory may already have been deleted; ignore during cleanup.
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup: ignore transient IO issues when deleting temp directories.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Ignore permission issues during cleanup of test temp directories.
+            }
         }
     }
 
