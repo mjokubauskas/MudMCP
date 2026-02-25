@@ -21,7 +21,18 @@ public class ExampleExtractorTests : IDisposable
     {
         foreach (var dir in _tempDirs)
         {
-            try { Directory.Delete(dir, recursive: true); } catch { }
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (IOException)
+            {
+                // Ignore I/O errors during cleanup of temporary directories.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Ignore access issues during cleanup of temporary directories.
+            }
         }
     }
 

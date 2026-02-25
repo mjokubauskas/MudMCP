@@ -24,6 +24,9 @@ public sealed class ComponentIndexer : IComponentIndexer
     private readonly ILogger<ComponentIndexer> _logger;
     private readonly MudBlazorOptions _options;
 
+    private const string RazorCsExtension = ".razor.cs";
+    private const string CsExtension = ".cs";
+
     private readonly ConcurrentDictionary<string, ComponentInfo> _components = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ApiReference> _apiReferences = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _indexLock = new(1, 1);
@@ -124,12 +127,12 @@ public sealed class ComponentIndexer : IComponentIndexer
         
         // Collect Mud*.cs files that don't have a corresponding .razor.cs file
         var razorCsSet = new HashSet<string>(
-            razorCsFiles.Select(f => f[..^".razor.cs".Length]),
+            razorCsFiles.Select(f => f[..^RazorCsExtension.Length]),
             StringComparer.OrdinalIgnoreCase);
         
         var csOnlyFiles = Directory.GetFiles(componentDir, "Mud*.cs")
-            .Where(f => !f.EndsWith(".razor.cs", StringComparison.OrdinalIgnoreCase)
-                        && !razorCsSet.Contains(f[..^".cs".Length]));
+            .Where(f => !f.EndsWith(RazorCsExtension, StringComparison.OrdinalIgnoreCase)
+                        && !razorCsSet.Contains(f[..^CsExtension.Length]));
 
         var allFiles = razorCsFiles.Concat(csOnlyFiles);
 
