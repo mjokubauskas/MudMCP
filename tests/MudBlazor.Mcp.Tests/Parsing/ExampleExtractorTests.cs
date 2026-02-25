@@ -25,6 +25,10 @@ public class ExampleExtractorTests : IDisposable
             {
                 Directory.Delete(dir, recursive: true);
             }
+            catch (DirectoryNotFoundException)
+            {
+                // Ignore if the directory has already been deleted.
+            }
             catch (IOException)
             {
                 // Ignore I/O errors during cleanup of temporary directories.
@@ -32,10 +36,6 @@ public class ExampleExtractorTests : IDisposable
             catch (UnauthorizedAccessException)
             {
                 // Ignore access issues during cleanup of temporary directories.
-            }
-            catch (DirectoryNotFoundException)
-            {
-                // Ignore if the directory has already been deleted.
             }
         }
     }
