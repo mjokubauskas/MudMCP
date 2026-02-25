@@ -39,7 +39,7 @@ public class ComponentIndexerTests : IDisposable
 
     private string CreateTempRepoDir()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "mudmcp-test-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
         _tempDirs.Add(dir);
         return dir;
