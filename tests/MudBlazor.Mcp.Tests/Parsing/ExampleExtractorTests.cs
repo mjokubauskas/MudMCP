@@ -183,7 +183,7 @@ public class ExampleExtractorTests : IDisposable
         // Arrange - simulate a case-sensitive filesystem scenario where the folder
         // name differs in casing from what the component name would produce.
         // Component "MudCheckBox" strips "Mud" → "CheckBox", but the folder is "Checkbox".
-        var tempDir = Path.Combine(Path.GetTempPath(), "mudmcp-test-" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
         _tempDirs.Add(tempDir);
         
         // Create folder with lowercase 'b' (like on the real MudBlazor repo)
@@ -208,7 +208,7 @@ public class ExampleExtractorTests : IDisposable
     public async Task ExtractExamplesAsync_WithExactCasing_FindsExamples()
     {
         // Arrange - folder casing matches exactly
-        var tempDir = Path.Combine(Path.GetTempPath(), "mudmcp-test-" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
         _tempDirs.Add(tempDir);
         
         var exampleDir = Path.Combine(tempDir, "Pages", "Components", "Button");
