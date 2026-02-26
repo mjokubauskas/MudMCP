@@ -124,7 +124,7 @@ Expected response:
 
 ### 4. Connect Your AI Assistant
 
-**VS Code (mcp.json):**
+**VS Code / Cursor (HTTP mode, mcp.json):**
 ```json
 {
   "servers": {
@@ -135,6 +135,67 @@ Expected response:
   }
 }
 ```
+
+---
+
+## Local MCP (stdio — no frontend required)
+
+Run the MCP server locally without starting a web server or the Aspire dashboard. The server communicates directly through stdin/stdout, which is the native mode for Cursor, Claude Desktop, and most MCP clients.
+
+### Option A — dotnet run (development)
+
+Copy [`mcp.local.json`](./mcp.local.json) into your `.cursor/mcp.json` or `claude_desktop_config.json`. The path inside already points to this repository:
+
+```json
+{
+  "mcpServers": {
+    "mudblazor": {
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "C:\\Users\\current-user\\source\\repos\\MudMCP\\src\\MudBlazor.Mcp\\MudBlazor.Mcp.csproj",
+        "--",
+        "--stdio"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
+> The first run takes longer because it clones the MudBlazor repository (~500 MB) and builds the index.
+
+### Option B — Self-contained executable (recommended for daily use)
+
+Publish a single-file executable that starts instantly without the .NET SDK:
+
+```powershell
+dotnet publish src/MudBlazor.Mcp/MudBlazor.Mcp.csproj `
+  -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -o publish/win-x64
+```
+
+Then use [`mcp.executable.json`](./mcp.executable.json) as your MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "mudblazor": {
+      "command": "C:\\Users\\current-user\\source\\repos\\MudMCP\\publish\\win-x64\\MudBlazor.Mcp.exe",
+      "args": ["--stdio"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Transport comparison
+
+| Mode | Command | Kestrel | Use case |
+|------|---------|---------|----------|
+| `--stdio` | `dotnet run -- --stdio` or `.exe --stdio` | No | Cursor, Claude Desktop, local clients |
+| HTTP (default) | `dotnet run` | Yes (`:5180`) | VS Code HTTP, MCP Inspector, remote |
 
 ---
 
