@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/mcp.json",
+  "mcpServers": {
+    "mudblazor": {
+      "description": "MudBlazor MCP Server (Local/Stdio) - Executa via .NET SDK",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "C:\\Users\\current-user\\source\\repos\\MudMCP\\src\\MudBlazor.Mcp\\MudBlazor.Mcp.csproj",
+        "--",
+        "--stdio"
+      ],
+      "env": {}
+    }
+  }
+}
