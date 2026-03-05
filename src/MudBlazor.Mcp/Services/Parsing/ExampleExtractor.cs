@@ -39,7 +39,38 @@ public sealed partial class ExampleExtractor
         // Component examples are typically in: Docs/Pages/Components/{ComponentName}/{ComponentName}*Example.razor
         // The folder name is usually the component name without "Mud" prefix
         var folderName = componentName.StartsWith("Mud") ? componentName[3..] : componentName;
-        var componentDocsPath = Path.Combine(docsPath, "Pages", "Components", folderName);
+        var parentDir = Path.Combine(docsPath, "Pages", "Components");
+        var componentDocsPath = Path.Combine(parentDir, folderName);
+
+        // Case-insensitive directory lookup for cross-platform compatibility
+        if (!Directory.Exists(componentDocsPath) && Directory.Exists(parentDir))
+        {
+            try
+            {
+                var match = Directory.GetDirectories(parentDir)
+                    .FirstOrDefault(d => Path.GetFileName(d)
+                        .Equals(folderName, StringComparison.OrdinalIgnoreCase));
+
+                if (match is not null)
+                {
+                    componentDocsPath = match;
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to enumerate directories under {ParentDir} due to insufficient access while resolving docs folder for component {ComponentName}. Returning no examples.",
+                    parentDir, componentName);
+                return examples;
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning(ex,
+                    "I/O error while enumerating directories under {ParentDir} when resolving docs folder for component {ComponentName}. Returning no examples.",
+                    parentDir, componentName);
+                return examples;
+            }
+        }
 
         if (!Directory.Exists(componentDocsPath))
         {
@@ -147,7 +178,7 @@ public sealed partial class ExampleExtractor
         // Pattern: ButtonGroupExample -> "Group"
         // Pattern: ButtonIconAndLabelExample -> "IconAndLabel"
         
-        if (fileName.StartsWith(baseName))
+        if (fileName.StartsWith(baseName, StringComparison.OrdinalIgnoreCase))
         {
             var remainder = fileName[baseName.Length..];
             if (remainder.EndsWith("Example"))

@@ -6,14 +6,38 @@ using MudBlazor.Mcp.Services.Parsing;
 
 namespace MudBlazor.Mcp.Tests.Parsing;
 
-public class ExampleExtractorTests
+public class ExampleExtractorTests : IDisposable
 {
     private readonly ExampleExtractor _extractor;
+    private readonly List<string> _tempDirs = [];
 
     public ExampleExtractorTests()
     {
         var logger = Mock.Of<ILogger<ExampleExtractor>>();
         _extractor = new ExampleExtractor(logger);
+    }
+
+    public void Dispose()
+    {
+        foreach (var dir in _tempDirs)
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // Ignore if the directory has already been deleted.
+            }
+            catch (IOException)
+            {
+                // Ignore I/O errors during cleanup of temporary directories.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Ignore access issues during cleanup of temporary directories.
+            }
+        }
     }
 
     [Fact]
@@ -151,5 +175,53 @@ public class ExampleExtractorTests
 
         // Assert
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task ExtractExamplesAsync_WithMismatchedCasing_FindsExamples()
+    {
+        // Arrange - simulate a case-sensitive filesystem scenario where the folder
+        // name differs in casing from what the component name would produce.
+        // Component "MudCheckBox" strips "Mud" → "CheckBox", but the folder is "Checkbox".
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
+        _tempDirs.Add(tempDir);
+        
+        // Create folder with lowercase 'b' (like on the real MudBlazor repo)
+        var exampleDir = Path.Combine(tempDir, "Pages", "Components", "Checkbox");
+        Directory.CreateDirectory(exampleDir);
+
+        await File.WriteAllTextAsync(Path.Combine(exampleDir, "CheckboxBasicExample.razor"), """
+            <MudCheckBox @bind-Value="@checked">Check me</MudCheckBox>
+            @code {
+                private bool @checked = false;
+            }
+            """);
+
+        // Act - pass "MudCheckBox" which strips to "CheckBox" (capital B)
+        var examples = await _extractor.ExtractExamplesAsync(tempDir, "MudCheckBox", CancellationToken.None);
+
+        // Assert - should find the example despite casing mismatch
+        Assert.Single(examples);
+    }
+
+    [Fact]
+    public async Task ExtractExamplesAsync_WithExactCasing_FindsExamples()
+    {
+        // Arrange - folder casing matches exactly
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
+        _tempDirs.Add(tempDir);
+        
+        var exampleDir = Path.Combine(tempDir, "Pages", "Components", "Button");
+        Directory.CreateDirectory(exampleDir);
+
+        await File.WriteAllTextAsync(Path.Combine(exampleDir, "ButtonBasicExample.razor"), """
+            <MudButton>Click</MudButton>
+            """);
+
+        // Act
+        var examples = await _extractor.ExtractExamplesAsync(tempDir, "MudButton", CancellationToken.None);
+
+        // Assert
+        Assert.Single(examples);
     }
 }

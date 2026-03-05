@@ -32,14 +32,14 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Validate names (alphanumeric, underscores, hyphens only)
-if ($AppPoolName -notmatch '^[a-zA-Z0-9_-]+$') {
-    Write-Error "Invalid app pool name. Only alphanumeric characters, underscores, and hyphens are allowed."
+# Validate names (alphanumeric, dots, underscores, hyphens)
+if ($AppPoolName -notmatch '^[a-zA-Z0-9_.-]+$') {
+    Write-Error "Invalid app pool name. Only alphanumeric characters, dots, underscores, and hyphens are allowed."
     exit 1
 }
 
-if ($WebsiteName -notmatch '^[a-zA-Z0-9_-]+$') {
-    Write-Error "Invalid website name. Only alphanumeric characters, underscores, and hyphens are allowed."
+if ($WebsiteName -notmatch '^[a-zA-Z0-9_.-]+$') {
+    Write-Error "Invalid website name. Only alphanumeric characters, dots, underscores, and hyphens are allowed."
     exit 1
 }
 
