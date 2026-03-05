@@ -7,80 +7,60 @@ using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Services;
 using MudBlazor.Mcp.Services.Parsing;
 
-var builder = WebApplication.CreateBuilder(args);
-
 // Check for stdio transport mode
 var useStdio = args.Contains("--stdio");
 
-// Configure logging to stderr for MCP compatibility (required for stdio transport)
-builder.Logging.AddConsole(options =>
-{
-    options.LogToStandardErrorThreshold = LogLevel.Trace;
-});
-
-// Bind configuration
-builder.Services.Configure<MudBlazorOptions>(
-    builder.Configuration.GetSection("MudBlazor"));
-builder.Services.Configure<RepositoryOptions>(
-    builder.Configuration.GetSection("MudBlazor:Repository"));
-builder.Services.Configure<CacheOptions>(
-    builder.Configuration.GetSection("MudBlazor:Cache"));
-builder.Services.Configure<ParsingOptions>(
-    builder.Configuration.GetSection("MudBlazor:Parsing"));
-
-// Add memory caching
-builder.Services.AddMemoryCache();
-
-// Register services
-builder.Services.AddSingleton<IGitRepositoryService, GitRepositoryService>();
-builder.Services.AddSingleton<IDocumentationCache, DocumentationCache>();
-builder.Services.AddSingleton<IComponentIndexer, ComponentIndexer>();
-
-// Register parsers
-builder.Services.AddSingleton<XmlDocParser>();
-builder.Services.AddSingleton<RazorDocParser>();
-builder.Services.AddSingleton<ExampleExtractor>();
-builder.Services.AddSingleton<CategoryMapper>();
-
-// Health checks with detailed status
-builder.Services.AddHealthChecks()
-    .AddCheck<IndexerHealthCheck>("indexer", tags: ["ready"]);
-
-// Add MCP server with configurable transport
 if (useStdio)
 {
-    // Use stdio transport for CLI-based MCP clients
+    // Stdio mode: plain console host — no Kestrel, no health endpoints.
+    // All logs must go to stderr so stdout remains clean for MCP protocol frames.
+    var builder = Host.CreateApplicationBuilder(args);
+
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole(options =>
+    {
+        options.LogToStandardErrorThreshold = LogLevel.Trace;
+    });
+
+    RegisterCoreServices(builder.Services, builder.Configuration);
+
     builder.Services.AddMcpServer(options =>
     {
-        options.ServerInfo = new()
-        {
-            Name = "MudBlazor Documentation Server",
-            Version = "1.0.0"
-        };
+        options.ServerInfo = new() { Name = "MudBlazor Documentation Server", Version = "1.0.0" };
     })
     .WithStdioServerTransport()
     .WithToolsFromAssembly();
+
+    var host = builder.Build();
+
+    await BuildIndexAsync(host.Services);
+
+    await host.RunAsync();
 }
 else
 {
-    // Use HTTP transport for web-based MCP clients
+    // HTTP mode: full ASP.NET Core web host with health checks and streamable HTTP transport.
+    var builder = WebApplication.CreateBuilder(args);
+
+    builder.Logging.AddConsole(options =>
+    {
+        options.LogToStandardErrorThreshold = LogLevel.Trace;
+    });
+
+    RegisterCoreServices(builder.Services, builder.Configuration);
+
+    builder.Services.AddHealthChecks()
+        .AddCheck<IndexerHealthCheck>("indexer", tags: ["ready"]);
+
     builder.Services.AddMcpServer(options =>
     {
-        options.ServerInfo = new()
-        {
-            Name = "MudBlazor Documentation Server",
-            Version = "1.0.0"
-        };
+        options.ServerInfo = new() { Name = "MudBlazor Documentation Server", Version = "1.0.0" };
     })
     .WithHttpTransport()
     .WithToolsFromAssembly();
-}
 
-var app = builder.Build();
+    var app = builder.Build();
 
-// Map health check endpoints (only for HTTP transport)
-if (!useStdio)
-{
     app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         ResponseWriter = WriteHealthCheckResponse
@@ -96,35 +76,58 @@ if (!useStdio)
         ResponseWriter = WriteHealthCheckResponse
     });
 
-    // Map MCP endpoint at /mcp for streamable HTTP transport
     app.MapMcp("/mcp");
+
+    await BuildIndexAsync(app.Services);
+
+    await app.RunAsync();
 }
 
-// Build the index on startup
-var indexer = app.Services.GetRequiredService<IComponentIndexer>();
-var logger = app.Services.GetRequiredService<ILogger<Program>>();
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-try
+static void RegisterCoreServices(IServiceCollection services, IConfiguration configuration)
 {
-    logger.LogInformation("Building MudBlazor component index...");
-    await indexer.BuildIndexAsync();
-    logger.LogInformation("Index built successfully with {ComponentCount} components",
-        (await indexer.GetAllComponentsAsync()).Count);
+    services.Configure<MudBlazorOptions>(configuration.GetSection("MudBlazor"));
+    services.Configure<RepositoryOptions>(configuration.GetSection("MudBlazor:Repository"));
+    services.Configure<CacheOptions>(configuration.GetSection("MudBlazor:Cache"));
+    services.Configure<ParsingOptions>(configuration.GetSection("MudBlazor:Parsing"));
+
+    services.AddMemoryCache();
+
+    services.AddSingleton<IGitRepositoryService, GitRepositoryService>();
+    services.AddSingleton<IDocumentationCache, DocumentationCache>();
+    services.AddSingleton<IComponentIndexer, ComponentIndexer>();
+
+    services.AddSingleton<XmlDocParser>();
+    services.AddSingleton<RazorDocParser>();
+    services.AddSingleton<ExampleExtractor>();
+    services.AddSingleton<CategoryMapper>();
 }
-catch (Exception ex)
+
+static async Task BuildIndexAsync(IServiceProvider services)
 {
-    logger.LogError(ex, "Failed to build initial index. Server will start without component data.");
+    var indexer = services.GetRequiredService<IComponentIndexer>();
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        logger.LogInformation("Building MudBlazor component index...");
+        await indexer.BuildIndexAsync();
+        logger.LogInformation("Index built successfully with {ComponentCount} components",
+            (await indexer.GetAllComponentsAsync()).Count);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to build initial index. Server will start without component data.");
+    }
 }
 
-await app.RunAsync();
-
-/// <summary>
-/// Writes a detailed JSON health check response.
-/// </summary>
 static Task WriteHealthCheckResponse(HttpContext context, HealthReport report)
 {
     context.Response.ContentType = "application/json";
-    
+
     var response = new
     {
         status = report.Status.ToString(),
@@ -143,9 +146,11 @@ static Task WriteHealthCheckResponse(HttpContext context, HealthReport report)
     return context.Response.WriteAsJsonAsync(response);
 }
 
-/// <summary>
-/// Health check for the component indexer with detailed status.
-/// </summary>
+// ---------------------------------------------------------------------------
+// Health check implementation
+// ---------------------------------------------------------------------------
+
+/// <summary>Health check for the component indexer with detailed status.</summary>
 public class IndexerHealthCheck : IHealthCheck
 {
     private readonly IComponentIndexer _indexer;

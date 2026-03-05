@@ -411,6 +411,7 @@ FodyWeavers.xsd
 *.vsix
 
 # MudBlazor.Mcp - cloned repository data
+src/MudBlazor.Mcp/data/mudblazor-repo
 **/data/mudblazor-repo/
 
 # Windows Installer files from build outputs
@@ -419,5 +420,3 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
-
-src/MudBlazor.Mcp/data/mudblazor-repo

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/mcp.json",
+  "mcpServers": {
+    "mudblazor": {
+      "description": "MudBlazor MCP Server (Self-Contained Executable)",
+      "command": "C:\\Users\\current-user\\source\\repos\\MudMCP\\publish\\win-x64\\MudBlazor.Mcp.exe",
+      "args": [
+        "--stdio"
+      ],
+      "env": {}
+    }
+  }
+}
