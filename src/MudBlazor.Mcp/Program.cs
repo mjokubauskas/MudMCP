@@ -42,7 +42,7 @@ if (useStdio)
 
     builder.Services.AddMcpServer(options =>
     {
-        options.ServerInfo = new() { Name = "MudBlazor Documentation Server", Version = "1.0.0" };
+        options.ServerInfo = new() { Name = $"MudBlazor Documentation Server (v{mudBlazorVersion})", Version = "1.0.0" };
     })
     .WithStdioServerTransport()
     .WithToolsFromAssembly();
@@ -72,7 +72,7 @@ else
 
     builder.Services.AddMcpServer(options =>
     {
-        options.ServerInfo = new() { Name = "MudBlazor Documentation Server", Version = "1.0.0" };
+        options.ServerInfo = new() { Name = $"MudBlazor Documentation Server (v{mudBlazorVersion})", Version = "1.0.0" };
     })
     .WithHttpTransport()
     .WithToolsFromAssembly();
@@ -114,6 +114,11 @@ static void RegisterCoreServices(IServiceCollection services, IConfiguration con
     services.Configure<RepositoryOptions>(configuration.GetSection("MudBlazor:Repository"));
     services.Configure<CacheOptions>(configuration.GetSection("MudBlazor:Cache"));
     services.Configure<ParsingOptions>(configuration.GetSection("MudBlazor:Parsing"));
+
+    // Read MaxCachedVersions from config
+    var repoOptions = configuration.GetSection("MudBlazor:Repository").Get<RepositoryOptions>() ?? new RepositoryOptions();
+    services.AddSingleton<IVersionCacheManager>(
+        new VersionCacheManager("./data", repoOptions.MaxCachedVersions));
 
     services.AddMemoryCache();
 
