@@ -77,7 +77,7 @@ public class ApiReferenceToolsTests
     {
         // Act & Assert
         var ex = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
-            await ApiReferenceTools.GetEnumValuesAsync(NullLogger, "", CancellationToken.None));
+            await ApiReferenceTools.GetEnumValuesAsync(NullLogger, _versionContext, "", CancellationToken.None));
 
         Assert.Contains("enumName", ex.Message);
     }
@@ -87,7 +87,7 @@ public class ApiReferenceToolsTests
     {
         // Act & Assert
         var ex = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
-            await ApiReferenceTools.GetEnumValuesAsync(NullLogger, null!, CancellationToken.None));
+            await ApiReferenceTools.GetEnumValuesAsync(NullLogger, _versionContext, null!, CancellationToken.None));
 
         Assert.Contains("enumName", ex.Message);
     }
@@ -97,7 +97,7 @@ public class ApiReferenceToolsTests
     {
         // Act & Assert
         var ex = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
-            await ApiReferenceTools.GetEnumValuesAsync(NullLogger, "UnknownEnum", CancellationToken.None));
+            await ApiReferenceTools.GetEnumValuesAsync(NullLogger, _versionContext, "UnknownEnum", CancellationToken.None));
 
         Assert.Contains("not found", ex.Message);
     }
