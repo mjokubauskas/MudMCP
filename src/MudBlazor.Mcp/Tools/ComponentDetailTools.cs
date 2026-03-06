@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Models;
 using MudBlazor.Mcp.Services;
 
@@ -20,10 +21,11 @@ public sealed class ComponentDetailTools
     /// Gets detailed information about a specific MudBlazor component.
     /// </summary>
     [McpServerTool(Name = "get_component_detail")]
-    [Description("Gets comprehensive details about a specific MudBlazor component including parameters, events, methods, and usage information.")]
+    [Description("Gets comprehensive details about a specific MudBlazor component including parameters, events, methods, and usage information. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> GetComponentDetailAsync(
         IComponentIndexer indexer,
         ILogger<ComponentDetailTools> logger,
+        VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         [Description("Include inherited members from base classes (default: false)")]
@@ -55,7 +57,7 @@ public sealed class ComponentDetailTools
         var sb = new StringBuilder();
         
         // Header
-        sb.AppendLine($"# {component.Name}");
+        sb.AppendLine($"# {component.Name} (v{versionContext.Version})");
         sb.AppendLine();
         sb.AppendLine($"**Namespace:** `{component.Namespace}`");
         
@@ -217,10 +219,11 @@ public sealed class ComponentDetailTools
     /// Gets the parameters for a MudBlazor component.
     /// </summary>
     [McpServerTool(Name = "get_component_parameters")]
-    [Description("Gets all parameters for a specific MudBlazor component, optionally filtered by category.")]
+    [Description("Gets all parameters for a specific MudBlazor component, optionally filtered by category. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> GetComponentParametersAsync(
         IComponentIndexer indexer,
         ILogger<ComponentDetailTools> logger,
+        VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         [Description("Optional parameter category filter (e.g., 'Behavior', 'Appearance')")]
@@ -253,7 +256,7 @@ public sealed class ComponentDetailTools
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {component.Name} Parameters");
+        sb.AppendLine($"# {component.Name} Parameters (v{versionContext.Version})");
         sb.AppendLine();
 
         // Group by category if available

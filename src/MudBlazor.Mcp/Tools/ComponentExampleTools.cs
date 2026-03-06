@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Services;
 
 namespace MudBlazor.Mcp.Tools;
@@ -19,10 +20,11 @@ public sealed class ComponentExampleTools
     /// Gets code examples for a MudBlazor component.
     /// </summary>
     [McpServerTool(Name = "get_component_examples")]
-    [Description("Gets code examples for a specific MudBlazor component, showing how to use it in different scenarios.")]
+    [Description("Gets code examples for a specific MudBlazor component, showing how to use it in different scenarios. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> GetComponentExamplesAsync(
         IComponentIndexer indexer,
         ILogger<ComponentExampleTools> logger,
+        VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         [Description("Maximum number of examples to return (default: 5, max: 20)")]
@@ -70,7 +72,7 @@ public sealed class ComponentExampleTools
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {component.Name} Examples");
+        sb.AppendLine($"# {component.Name} Examples (v{versionContext.Version})");
         sb.AppendLine();
         sb.AppendLine($"*{examples.Count} example(s) available*");
         sb.AppendLine();
@@ -139,10 +141,11 @@ public sealed class ComponentExampleTools
     /// Gets a specific example by name.
     /// </summary>
     [McpServerTool(Name = "get_example_by_name")]
-    [Description("Gets a specific code example by its name from a MudBlazor component.")]
+    [Description("Gets a specific code example by its name from a MudBlazor component. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> GetExampleByNameAsync(
         IComponentIndexer indexer,
         ILogger<ComponentExampleTools> logger,
+        VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         [Description("The example name to find (e.g., 'Basic', 'Icon Button', 'Disabled')")]
@@ -178,7 +181,7 @@ public sealed class ComponentExampleTools
         logger.LogDebug("Found example '{ExampleName}' for {ComponentName}", example.Name, componentName);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {component.Name} - {example.Name}");
+        sb.AppendLine($"# {component.Name} - {example.Name} (v{versionContext.Version})");
         sb.AppendLine();
 
         if (!string.IsNullOrEmpty(example.Description))
@@ -232,10 +235,11 @@ public sealed class ComponentExampleTools
     /// Lists all example names for a component.
     /// </summary>
     [McpServerTool(Name = "list_component_examples")]
-    [Description("Lists all available example names for a MudBlazor component without the full code.")]
+    [Description("Lists all available example names for a MudBlazor component without the full code. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> ListComponentExamplesAsync(
         IComponentIndexer indexer,
         ILogger<ComponentExampleTools> logger,
+        VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         CancellationToken cancellationToken = default)
@@ -260,7 +264,7 @@ public sealed class ComponentExampleTools
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {component.Name} Examples");
+        sb.AppendLine($"# {component.Name} Examples (v{versionContext.Version})");
         sb.AppendLine();
         sb.AppendLine($"*{component.Examples.Count} example(s) available*");
         sb.AppendLine();
