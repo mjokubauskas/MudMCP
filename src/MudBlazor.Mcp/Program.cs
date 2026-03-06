@@ -14,8 +14,26 @@ var useStdio = args.Contains("--stdio");
 var versionIndex = Array.IndexOf(args, "--version");
 if (versionIndex < 0 || versionIndex + 1 >= args.Length)
 {
-    Console.Error.WriteLine("Error: --version argument is required. Usage: --version 9.0.0");
-    Console.Error.WriteLine("Check the MudBlazor PackageReference version in your project's .csproj file.");
+    Console.Error.WriteLine("Error: --version argument is required.");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("The MudBlazor MCP server requires a specific MudBlazor version to serve documentation for.");
+    Console.Error.WriteLine("Find your version in your project's .csproj file: <PackageReference Include=\"MudBlazor\" Version=\"X.Y.Z\" />");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Add --version to your .mcp.json configuration:");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("  {");
+    Console.Error.WriteLine("    \"mcpServers\": {");
+    Console.Error.WriteLine("      \"mudblazor\": {");
+    Console.Error.WriteLine("        \"command\": \"dotnet\",");
+    Console.Error.WriteLine("        \"args\": [");
+    Console.Error.WriteLine("          \"run\", \"--project\", \"<path-to-MudMCP>/src/MudBlazor.Mcp/MudBlazor.Mcp.csproj\",");
+    Console.Error.WriteLine("          \"--\", \"--stdio\", \"--version\", \"9.0.0\"");
+    Console.Error.WriteLine("        ]");
+    Console.Error.WriteLine("      }");
+    Console.Error.WriteLine("    }");
+    Console.Error.WriteLine("  }");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Replace 9.0.0 with your project's MudBlazor version.");
     return 1;
 }
 var mudBlazorVersion = args[versionIndex + 1];
