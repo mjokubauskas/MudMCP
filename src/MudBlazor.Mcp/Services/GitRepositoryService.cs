@@ -14,6 +14,8 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
 {
     private readonly ILogger<GitRepositoryService> _logger;
     private readonly MudBlazorOptions _options;
+    private readonly VersionContext _versionContext;
+    private readonly IVersionCacheManager _cacheManager;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
     private Repository? _repository;
     private bool _disposed;
@@ -23,19 +25,27 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
     /// </summary>
     /// <param name="logger">The logger instance.</param>
     /// <param name="options">The configuration options.</param>
+    /// <param name="versionContext">The version context for the current request.</param>
+    /// <param name="cacheManager">The version cache manager.</param>
     public GitRepositoryService(
         ILogger<GitRepositoryService> logger,
-        IOptions<MudBlazorOptions> options)
+        IOptions<MudBlazorOptions> options,
+        VersionContext versionContext,
+        IVersionCacheManager cacheManager)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(versionContext);
+        ArgumentNullException.ThrowIfNull(cacheManager);
 
         _logger = logger;
         _options = options.Value;
+        _versionContext = versionContext;
+        _cacheManager = cacheManager;
     }
 
     /// <inheritdoc />
-    public string RepositoryPath => Path.GetFullPath(_options.Repository.LocalPath);
+    public string RepositoryPath => Path.GetFullPath(_versionContext.RepoPath);
 
     /// <inheritdoc />
     public bool IsAvailable => Directory.Exists(Path.Combine(RepositoryPath, ".git"));
@@ -66,94 +76,60 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
         await _syncLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!IsAvailable)
+            if (IsAvailable)
             {
-                _logger.LogInformation("Cloning MudBlazor repository from {Url} to {Path}",
-                    _options.Repository.Url, RepositoryPath);
-
-                // Ensure parent directory exists
-                var parentDir = Path.GetDirectoryName(RepositoryPath);
-                if (!string.IsNullOrEmpty(parentDir))
-                {
-                    Directory.CreateDirectory(parentDir);
-                }
-
-                // Clone the repository
-                await Task.Run(() =>
-                {
-                    var cloneOptions = new CloneOptions
-                    {
-                        BranchName = _options.Repository.Branch,
-                        RecurseSubmodules = false
-                    };
-
-                    Repository.Clone(_options.Repository.Url, RepositoryPath, cloneOptions);
-                }, cancellationToken).ConfigureAwait(false);
-
-                _logger.LogInformation("Successfully cloned MudBlazor repository. Commit: {Commit}",
-                    CurrentCommitHash);
-
-                return true;
+                _logger.LogInformation("Repository for v{Version} already available at {Path}",
+                    _versionContext.Version, RepositoryPath);
+                _cacheManager.TouchVersion(_versionContext.Version);
+                return false;
             }
 
-            // Repository exists, try to pull latest changes
-            _logger.LogInformation("Updating MudBlazor repository...");
+            // Evict oldest version if at capacity
+            var evicted = _cacheManager.EvictIfNeeded();
+            if (evicted is not null)
+            {
+                _logger.LogInformation("Evicted cached version v{Version} (LRU)", evicted);
+            }
 
-            var previousCommit = CurrentCommitHash;
+            _logger.LogInformation("Cloning MudBlazor repository at tag {Tag} to {Path}",
+                _versionContext.Tag, RepositoryPath);
+
+            var parentDir = Path.GetDirectoryName(RepositoryPath);
+            if (!string.IsNullOrEmpty(parentDir))
+            {
+                Directory.CreateDirectory(parentDir);
+            }
 
             await Task.Run(() =>
             {
-                using var repo = new Repository(RepositoryPath);
-
-                // Fetch latest changes
-                var remote = repo.Network.Remotes["origin"];
-                var refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
-
-                Commands.Fetch(repo, remote.Name, refSpecs, new FetchOptions(), null);
-
-                // Get the tracking branch
-                var trackingBranch = repo.Head.TrackedBranch;
-                if (trackingBranch != null)
+                var cloneOptions = new CloneOptions
                 {
-                    // Hard reset to the remote branch to avoid conflicts
-                    // This is safe since we only read from the repository
-                    repo.Reset(ResetMode.Hard, trackingBranch.Tip);
-                }
+                    RecurseSubmodules = false
+                };
+
+                Repository.Clone(_options.Repository.Url, RepositoryPath, cloneOptions);
+
+                // Checkout the specific tag
+                using var repo = new Repository(RepositoryPath);
+                var tag = repo.Tags[_versionContext.Tag]
+                    ?? throw new InvalidOperationException(
+                        $"Tag '{_versionContext.Tag}' not found in repository. Check available MudBlazor versions at https://github.com/MudBlazor/MudBlazor/tags");
+
+                var targetCommit = tag.PeeledTarget as Commit
+                    ?? throw new InvalidOperationException($"Tag '{_versionContext.Tag}' does not point to a valid commit");
+                Commands.Checkout(repo, targetCommit);
             }, cancellationToken).ConfigureAwait(false);
 
-            var currentCommit = CurrentCommitHash;
-            var wasUpdated = previousCommit != currentCommit;
+            _cacheManager.RegisterVersion(_versionContext.Version);
 
-            if (wasUpdated)
-            {
-                _logger.LogInformation("Repository updated from {Previous} to {Current}",
-                    previousCommit, currentCommit);
-            }
-            else
-            {
-                _logger.LogDebug("Repository already up to date at {Commit}", currentCommit);
-            }
+            _logger.LogInformation("Successfully cloned MudBlazor v{Version}. Commit: {Commit}",
+                _versionContext.Version, CurrentCommitHash);
 
-            return wasUpdated;
-        }
-        catch (IOException ex)
-        {
-            _logger.LogError(ex, "IO error while ensuring MudBlazor repository");
-            throw;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            _logger.LogError(ex, "Access denied while ensuring MudBlazor repository");
-            throw;
-        }
-        catch (LibGit2Sharp.LibGit2SharpException ex)
-        {
-            _logger.LogError(ex, "Git operation failed while ensuring MudBlazor repository");
-            throw;
+            return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "Failed to ensure MudBlazor repository");
+            _logger.LogError(ex, "Failed to ensure MudBlazor repository for v{Version}", _versionContext.Version);
             throw;
         }
         finally
