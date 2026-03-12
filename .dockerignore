@@ -1,0 +1,36 @@
+# Git history – largest single item to exclude.
+.git/
+.gitignore
+.gitattributes
+
+# Build outputs
+**/bin/
+**/obj/
+
+# Cloned MudBlazor repository – can be ~500 MB on a developer machine.
+# The container clones it at runtime into the /app/data volume.
+src/MudBlazor.Mcp/data/
+
+# Projects not required to build MudBlazor.Mcp
+src/MudBlazor.Mcp.AppHost/
+tests/
+
+# Documentation & engineering scripts – not needed inside the image.
+docs/
+eng/
+
+# Published output (created by dotnet publish locally)
+publish/
+
+# IDE / OS artifacts
+.vs/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+
+# Docker files themselves
+Dockerfile
+docker-compose*.yml
+.dockerignore
