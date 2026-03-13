@@ -193,6 +193,47 @@ Then use this as your MCP configuration:
 }
 ```
 
+### Option C — Docker (HTTP mode, persistent cache)
+
+Run the server in a container with built-in health checks and a named volume that persists the cloned MudBlazor repository across restarts.
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose plugin)
+
+```bash
+# Build the image and start the container
+docker compose up --build -d
+
+# Follow startup logs (first run clones ~500 MB — takes a few minutes)
+docker compose logs -f
+
+# Check health
+curl http://localhost:5180/health
+```
+
+The MCP endpoint is available at `http://localhost:5180/mcp` — no changes needed to an existing `mcp.json` that already points to `:5180`.
+
+**Volume:** The MudBlazor repository is stored in a named Docker volume (`mudblazor-data`) mounted at `/app/data/mudblazor-repo`. Subsequent `docker compose up` calls reuse the cached clone; only `git fetch` updates are performed.
+
+```bash
+# Stop without removing the volume (cache is preserved)
+docker compose down
+
+# Stop AND delete the cached clone (forces a full re-clone next start)
+docker compose down -v
+```
+
+**Connect your AI assistant** — same config as HTTP mode:
+```json
+{
+  "servers": {
+    "mudblazor": {
+      "type": "http",
+      "url": "http://localhost:5180/mcp"
+    }
+  }
+}
+```
+
 ### Version Caching
 
 The server caches up to **3 MudBlazor versions** simultaneously. Each version gets its own git clone and serialized index:
@@ -210,12 +251,15 @@ data/
 
 When a 4th version is requested, the least recently used version is evicted automatically. This means you can work on multiple projects with different MudBlazor versions — each project gets its own `.mcp.json` with the right `--version`, and they share the cached clones.
 
+---
+
 ### Transport comparison
 
 | Mode | Command | Kestrel | Use case |
 |------|---------|---------|----------|
 | `--stdio` | `dotnet run -- --stdio --version X.Y.Z` or `.exe --stdio --version X.Y.Z` | No | Cursor, Claude Code, Claude Desktop, local clients |
 | HTTP (default) | `dotnet run -- --version X.Y.Z` | Yes (`:5180`) | VS Code HTTP, MCP Inspector, remote |
+| Docker | `docker compose up` | Yes (`:5180→8080`) | Containerised / persistent cache |
 
 ---
 
