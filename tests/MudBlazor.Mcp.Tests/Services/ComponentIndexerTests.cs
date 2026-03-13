@@ -66,6 +66,8 @@ public class ComponentIndexerTests : IDisposable
         var options = Options.Create(new MudBlazorOptions());
         var logger = Mock.Of<ILogger<ComponentIndexer>>();
 
+        var versionContext = new VersionContext($"0.0.0-test-{Guid.NewGuid():N}");
+
         return new ComponentIndexer(
             gitService,
             cache,
@@ -73,6 +75,7 @@ public class ComponentIndexerTests : IDisposable
             razorParser,
             exampleExtractor,
             categoryMapper,
+            versionContext,
             options,
             logger);
     }
