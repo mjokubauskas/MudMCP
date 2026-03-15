@@ -47,7 +47,8 @@ VOLUME ["/app/data/mudblazor-repo"]
 # convention). The host-side mapping is defined in docker-compose.yml.
 ENV ASPNETCORE_HTTP_PORTS=8080
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV MUDBLAZOR_VERSION=9.0.0
 
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "MudBlazor.Mcp.dll"]
+ENTRYPOINT exec dotnet MudBlazor.Mcp.dll --version ${MUDBLAZOR_VERSION}
