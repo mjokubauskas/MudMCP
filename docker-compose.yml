@@ -22,6 +22,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       # Explicitly set the repo path so it matches the mounted volume above.
       - MudBlazor__Repository__LocalPath=/app/data/mudblazor-repo
+      # Add the MudBlazor version as an environment variable so it can be overridden at runtime
+      - MUDBLAZOR_VERSION=9.0.0
       # Override the branch if needed:
       # - MudBlazor__Repository__Branch=dev
     healthcheck:
