@@ -71,17 +71,20 @@ public class VersionCacheManagerTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_testDataPath, "v8.0.0"));
         Directory.CreateDirectory(Path.Combine(_testDataPath, "v9.0.0"));
 
-        var evicted = _manager.EvictToMakeRoomForNewVersion();
-        Assert.Equal("7.0.0", evicted);
+        var result = _manager.EvictToMakeRoomForNewVersion();
+        Assert.Equal(EvictionStatus.Evicted, result.Status);
+        Assert.Equal("7.0.0", result.EvictedVersion);
         Assert.False(_manager.IsVersionCached("7.0.0"));
         Assert.False(Directory.Exists(Path.Combine(_testDataPath, "v7.0.0")));
     }
 
     [Fact]
-    public void EvictToMakeRoomForNewVersion_ReturnsNull_WhenUnderCapacity()
+    public void EvictToMakeRoomForNewVersion_ReturnsNotNeeded_WhenUnderCapacity()
     {
         _manager.RegisterVersion("9.0.0");
-        Assert.Null(_manager.EvictToMakeRoomForNewVersion());
+        var result = _manager.EvictToMakeRoomForNewVersion();
+        Assert.Equal(EvictionStatus.NotNeeded, result.Status);
+        Assert.Null(result.EvictedVersion);
     }
 
     [Fact]

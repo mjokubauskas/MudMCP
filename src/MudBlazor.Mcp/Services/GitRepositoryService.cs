@@ -89,10 +89,16 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
             // Only evict when adding a truly new version to the cache.
             if (!_cacheManager.IsVersionCached(_versionContext.Version))
             {
-                var evicted = _cacheManager.EvictToMakeRoomForNewVersion();
-                if (evicted is not null)
+                var eviction = _cacheManager.EvictToMakeRoomForNewVersion();
+                switch (eviction.Status)
                 {
-                    _logger.LogInformation("Evicted cached version v{Version} (LRU)", evicted);
+                    case EvictionStatus.Evicted:
+                        _logger.LogInformation("Evicted cached version v{Version} (LRU)", eviction.EvictedVersion);
+                        break;
+                    case EvictionStatus.Failed:
+                        _logger.LogWarning(
+                            "Eviction failed; proceeding with clone but cache may exceed MaxCachedVersions");
+                        break;
                 }
             }
 

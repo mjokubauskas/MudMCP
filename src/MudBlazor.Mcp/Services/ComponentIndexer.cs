@@ -159,6 +159,10 @@ public sealed class ComponentIndexer : IComponentIndexer
 
             return true;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load cached index from {Path}, will rebuild", indexPath);

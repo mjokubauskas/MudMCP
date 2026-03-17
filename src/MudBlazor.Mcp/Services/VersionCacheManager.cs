@@ -54,11 +54,11 @@ public sealed class VersionCacheManager : IVersionCacheManager
     /// Evicts the least-recently-used cached version to make room for a new one.
     /// Must be called <b>before</b> registering a new version when the caller intends
     /// to add a version that is not yet tracked by the manifest.
-    /// Returns the evicted version string, or <c>null</c> if no eviction was needed.
     /// </summary>
-    public string? EvictToMakeRoomForNewVersion()
+    public EvictionResult EvictToMakeRoomForNewVersion()
     {
-        if (_manifest.Versions.Count < _maxVersions) return null;
+        if (_manifest.Versions.Count < _maxVersions)
+            return new EvictionResult(EvictionStatus.NotNeeded);
 
         var oldest = _manifest.Versions.OrderBy(v => v.LastUsed).First();
 
@@ -78,18 +78,27 @@ public sealed class VersionCacheManager : IVersionCacheManager
         catch (IOException ex)
         {
             _logger.LogWarning(ex, "IO error deleting evicted version directory {Path}; keeping manifest entry to retry later", versionDir);
-            return null;
+            return new EvictionResult(EvictionStatus.Failed);
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "Permission error deleting evicted version directory {Path}; keeping manifest entry to retry later", versionDir);
-            return null;
+            return new EvictionResult(EvictionStatus.Failed);
         }
 
+        // Directory is gone; update the manifest to match.
         _manifest.Versions.Remove(oldest);
-        Save();
+        if (!Save())
+        {
+            // The directory is already deleted but we failed to persist the updated
+            // manifest. Log a warning — the in-memory state is still correct, and the
+            // next startup will notice the missing directory entry is orphaned.
+            _logger.LogWarning(
+                "Evicted version directory {Path} was deleted but manifest save failed; in-memory state is correct but versions.json may be stale",
+                versionDir);
+        }
 
-        return oldest.Version;
+        return new EvictionResult(EvictionStatus.Evicted, oldest.Version);
     }
 
     private VersionManifest LoadManifest()
@@ -118,21 +127,24 @@ public sealed class VersionCacheManager : IVersionCacheManager
         }
     }
 
-    private void Save()
+    private bool Save()
     {
         try
         {
             Directory.CreateDirectory(_dataPath);
             var json = JsonSerializer.Serialize(_manifest, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_manifestPath, json);
+            return true;
         }
         catch (IOException ex)
         {
             _logger.LogWarning(ex, "IO error saving versions manifest to {Path}", _manifestPath);
+            return false;
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "Permission error saving versions manifest to {Path}", _manifestPath);
+            return false;
         }
     }
 }
