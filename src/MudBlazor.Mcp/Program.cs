@@ -136,8 +136,11 @@ static void RegisterCoreServices(IServiceCollection services, IConfiguration con
     // Read config to derive shared data path
     var repoOptions = configuration.GetSection("MudBlazor:Repository").Get<RepositoryOptions>() ?? new RepositoryOptions();
     services.AddSingleton(new VersionContext(version, repoOptions.DataPath));
-    services.AddSingleton<IVersionCacheManager>(
-        new VersionCacheManager(repoOptions.DataPath, repoOptions.MaxCachedVersions));
+    services.AddSingleton<IVersionCacheManager>(sp =>
+        new VersionCacheManager(
+            repoOptions.DataPath,
+            repoOptions.MaxCachedVersions,
+            logger: sp.GetRequiredService<ILogger<VersionCacheManager>>()));
 
     services.AddMemoryCache();
 

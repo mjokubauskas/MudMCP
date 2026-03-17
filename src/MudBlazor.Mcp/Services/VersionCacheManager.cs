@@ -61,9 +61,10 @@ public sealed class VersionCacheManager : IVersionCacheManager
         if (_manifest.Versions.Count < _maxVersions) return null;
 
         var oldest = _manifest.Versions.OrderBy(v => v.LastUsed).First();
-        _manifest.Versions.Remove(oldest);
-        Save();
 
+        // Delete the on-disk data first. Only remove from the manifest if
+        // deletion succeeds (or the directory doesn't exist) so the manifest
+        // stays in sync with what is actually on disk.
         var versionDir = Path.Combine(_dataPath, $"v{oldest.Version}");
         try
         {
@@ -76,12 +77,17 @@ public sealed class VersionCacheManager : IVersionCacheManager
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "IO error deleting evicted version directory {Path}", versionDir);
+            _logger.LogWarning(ex, "IO error deleting evicted version directory {Path}; keeping manifest entry to retry later", versionDir);
+            return null;
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex, "Permission error deleting evicted version directory {Path}", versionDir);
+            _logger.LogWarning(ex, "Permission error deleting evicted version directory {Path}; keeping manifest entry to retry later", versionDir);
+            return null;
         }
+
+        _manifest.Versions.Remove(oldest);
+        Save();
 
         return oldest.Version;
     }
@@ -103,6 +109,11 @@ public sealed class VersionCacheManager : IVersionCacheManager
         catch (IOException ex)
         {
             _logger.LogWarning(ex, "IO error reading versions manifest at {Path}, starting fresh", _manifestPath);
+            return new VersionManifest();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Permission error reading versions manifest at {Path}, starting fresh", _manifestPath);
             return new VersionManifest();
         }
     }
