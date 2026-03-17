@@ -120,6 +120,11 @@ public sealed class ComponentIndexer : IComponentIndexer
         }
     }
 
+    /// <summary>
+    /// Schema version for the on-disk cache format. Increment this value whenever the
+    /// <see cref="CachedIndex"/> record structure changes or the serialization format
+    /// is updated in a backward-incompatible way, so stale caches are automatically rebuilt.
+    /// </summary>
     private const int CacheSchemaVersion = 1;
 
     private async Task<bool> TryLoadCachedIndexAsync(CancellationToken cancellationToken)

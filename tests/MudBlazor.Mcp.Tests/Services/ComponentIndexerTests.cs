@@ -45,7 +45,7 @@ public class ComponentIndexerTests : IDisposable
         return dir;
     }
 
-    private static ComponentIndexer CreateIndexer(
+    private ComponentIndexer CreateIndexer(
         IGitRepositoryService? gitService = null,
         IDocumentationCache? cache = null,
         XmlDocParser? xmlParser = null,
@@ -69,6 +69,7 @@ public class ComponentIndexerTests : IDisposable
 
         // Use a temp data path so cached index files don't leak onto the real file system.
         var basePath = dataPath ?? Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
+        _tempDirs.Add(basePath);
         var versionContext = new VersionContext($"0.0.0-test-{Guid.NewGuid():N}", basePath);
 
         return new ComponentIndexer(
