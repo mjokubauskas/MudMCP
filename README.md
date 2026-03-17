@@ -214,13 +214,13 @@ curl http://localhost:5180/health
 
 The MCP endpoint is available at `http://localhost:5180/mcp` — no changes needed to an existing `mcp.json` that already points to `:5180`.
 
-**Volume:** The MudBlazor repository is stored in a named Docker volume (`mudblazor-data`) mounted at `/app/data/mudblazor-repo`. Subsequent `docker compose up` calls reuse the cached clone; only `git fetch` updates are performed.
+**Volume:** All cached data is stored under a named Docker volume (`mudblazor-data`) mounted at `/app/data`. Each MudBlazor version gets its own subdirectory (`/app/data/v{Version}/`) containing the git clone and serialized index (`index.json`). The version manifest (`versions.json`) lives at `/app/data/versions.json`. Because tagged commits are immutable, the server does not run `git fetch` on subsequent starts — it simply reuses the existing clone and loads the pre-built `index.json`.
 
 ```bash
 # Stop without removing the volume (cache is preserved)
 docker compose down
 
-# Stop AND delete the cached clone (forces a full re-clone next start)
+# Stop AND delete all cached data (forces a full re-clone and re-index next start)
 docker compose down -v
 ```
 

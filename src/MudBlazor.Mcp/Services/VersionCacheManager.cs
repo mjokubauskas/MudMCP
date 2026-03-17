@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Mud MCP Contributors
+// Licensed under the GNU General Public License v2.0. See LICENSE file in the project root for full license information.
+
 using System.Text.Json;
 
 namespace MudBlazor.Mcp.Services;
@@ -7,12 +10,17 @@ public sealed class VersionCacheManager : IVersionCacheManager
     private readonly string _dataPath;
     private readonly int _maxVersions;
     private readonly string _manifestPath;
+    private readonly TimeProvider _timeProvider;
     private VersionManifest _manifest;
 
-    public VersionCacheManager(string dataPath, int maxVersions = 3)
+    public VersionCacheManager(string dataPath, int maxVersions = 3, TimeProvider? timeProvider = null)
     {
+        if (maxVersions < 1)
+            throw new ArgumentOutOfRangeException(nameof(maxVersions), maxVersions, "Must be at least 1.");
+
         _dataPath = dataPath;
         _maxVersions = maxVersions;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _manifestPath = Path.Combine(dataPath, "versions.json");
         _manifest = LoadManifest();
     }
@@ -23,7 +31,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
     public void RegisterVersion(string version)
     {
         if (IsVersionCached(version)) return;
-        _manifest.Versions.Add(new VersionEntry(version, $"v{version}", DateTimeOffset.UtcNow));
+        _manifest.Versions.Add(new VersionEntry(version, $"v{version}", _timeProvider.GetUtcNow()));
         Save();
     }
 
@@ -31,7 +39,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
     {
         var entry = _manifest.Versions.FirstOrDefault(v => v.Version == version);
         if (entry is null) return;
-        entry.LastUsed = DateTimeOffset.UtcNow;
+        entry.LastUsed = _timeProvider.GetUtcNow();
         Save();
     }
 

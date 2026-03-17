@@ -2,16 +2,32 @@ using MudBlazor.Mcp.Services;
 
 namespace MudBlazor.Mcp.Tests.Services;
 
+/// <summary>
+/// A controllable <see cref="TimeProvider"/> for deterministic testing without Thread.Sleep.
+/// </summary>
+internal sealed class FakeTimeProvider : TimeProvider
+{
+    private DateTimeOffset _utcNow;
+
+    public FakeTimeProvider(DateTimeOffset startTime) => _utcNow = startTime;
+
+    public override DateTimeOffset GetUtcNow() => _utcNow;
+
+    public void Advance(TimeSpan delta) => _utcNow += delta;
+}
+
 public class VersionCacheManagerTests : IDisposable
 {
     private readonly string _testDataPath;
+    private readonly FakeTimeProvider _timeProvider;
     private readonly VersionCacheManager _manager;
 
     public VersionCacheManagerTests()
     {
         _testDataPath = Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_testDataPath);
-        _manager = new VersionCacheManager(_testDataPath, maxVersions: 3);
+        _timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        _manager = new VersionCacheManager(_testDataPath, maxVersions: 3, _timeProvider);
     }
 
     [Fact]
@@ -32,7 +48,7 @@ public class VersionCacheManagerTests : IDisposable
     {
         _manager.RegisterVersion("9.0.0");
         var before = _manager.GetLastUsed("9.0.0");
-        Thread.Sleep(50);
+        _timeProvider.Advance(TimeSpan.FromSeconds(1));
         _manager.TouchVersion("9.0.0");
         var after = _manager.GetLastUsed("9.0.0");
         Assert.True(after > before);
@@ -42,9 +58,9 @@ public class VersionCacheManagerTests : IDisposable
     public void EvictIfNeeded_RemovesOldestWhenAtCapacity()
     {
         _manager.RegisterVersion("7.0.0");
-        Thread.Sleep(50);
+        _timeProvider.Advance(TimeSpan.FromSeconds(1));
         _manager.RegisterVersion("8.0.0");
-        Thread.Sleep(50);
+        _timeProvider.Advance(TimeSpan.FromSeconds(1));
         _manager.RegisterVersion("9.0.0");
 
         // Create fake directories so eviction can delete them
@@ -63,6 +79,20 @@ public class VersionCacheManagerTests : IDisposable
     {
         _manager.RegisterVersion("9.0.0");
         Assert.Null(_manager.EvictIfNeeded());
+    }
+
+    [Fact]
+    public void Constructor_ThrowsForZeroMaxVersions()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new VersionCacheManager(_testDataPath, maxVersions: 0));
+    }
+
+    [Fact]
+    public void Constructor_ThrowsForNegativeMaxVersions()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new VersionCacheManager(_testDataPath, maxVersions: -1));
     }
 
     [Fact]

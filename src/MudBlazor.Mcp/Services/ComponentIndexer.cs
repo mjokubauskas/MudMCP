@@ -72,6 +72,16 @@ public sealed class ComponentIndexer : IComponentIndexer
             {
                 _logger.LogInformation("Loaded cached index for v{Version} with {Count} components",
                     _versionContext.Version, _components.Count);
+
+                // Ensure the CategoryMapper is initialized so category queries work
+                // even when the component data was restored from the on-disk cache.
+                await _gitService.EnsureRepositoryAsync(cancellationToken).ConfigureAwait(false);
+                if (_gitService.IsAvailable && _gitService.RepositoryPath is not null)
+                {
+                    await _categoryMapper.InitializeAsync(_gitService.RepositoryPath, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
                 _isIndexed = true;
                 _lastIndexed = DateTimeOffset.UtcNow;
                 return;
