@@ -21,8 +21,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       # Add the MudBlazor version as an environment variable so it can be overridden at runtime
       - MUDBLAZOR_VERSION=9.0.0
-      # Override the branch if needed:
-      # - MudBlazor__Repository__Branch=dev
+      # Other supported overrides:
+      # - MudBlazor__Repository__Url=https://github.com/MudBlazor/MudBlazor.git
+      # - MudBlazor__Repository__MaxCachedVersions=5
     healthcheck:
       # /health/live returns 200 immediately; /health/ready becomes healthy only
       # after the component index has been built (may take a few minutes on
