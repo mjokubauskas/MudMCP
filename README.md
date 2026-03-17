@@ -166,7 +166,7 @@ Add this to your project's `.mcp.json` (or `.cursor/mcp.json`, `claude_desktop_c
 }
 ```
 
-Replace `9.0.0` with your project's MudBlazor version and update the path to where you cloned MudMCP.
+Replace `9.0.0` with your project's MudBlazor version and replace the path with the absolute path to where you cloned this repository.
 
 > The first run per version takes longer because it clones the MudBlazor repository and builds the index. Subsequent runs load from a cached `index.json` and start instantly.
 
@@ -192,6 +192,8 @@ Then use this as your MCP configuration:
   }
 }
 ```
+
+Replace the command path with the absolute path to your published executable, and `9.0.0` with your project's MudBlazor version.
 
 ### Option C — Docker (HTTP mode, persistent cache)
 

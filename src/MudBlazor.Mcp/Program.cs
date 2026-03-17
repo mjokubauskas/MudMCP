@@ -78,6 +78,7 @@ else
     // HTTP mode: full ASP.NET Core web host with health checks and streamable HTTP transport.
     var builder = WebApplication.CreateBuilder(args);
 
+    builder.Logging.ClearProviders();
     builder.Logging.AddConsole(options =>
     {
         options.LogToStandardErrorThreshold = LogLevel.Trace;
