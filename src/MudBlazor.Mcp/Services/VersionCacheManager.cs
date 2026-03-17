@@ -94,8 +94,8 @@ public sealed class VersionCacheManager : IVersionCacheManager
             // manifest. Log a warning — the in-memory state is still correct, and the
             // next startup will notice the missing directory entry is orphaned.
             _logger.LogWarning(
-                "Evicted version directory {Path} was deleted but manifest save failed; in-memory state is correct but versions.json may be stale",
-                versionDir);
+                "Evicted version directory {Path} was deleted but manifest save failed; in-memory state is correct but {ManifestPath} may be stale",
+                versionDir, _manifestPath);
         }
 
         return new EvictionResult(EvictionStatus.Evicted, oldest.Version);
