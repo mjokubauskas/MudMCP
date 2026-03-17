@@ -86,11 +86,14 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
                 return false;
             }
 
-            // Evict oldest version if at capacity
-            var evicted = _cacheManager.EvictIfNeeded();
-            if (evicted is not null)
+            // Only evict when adding a truly new version to the cache.
+            if (!_cacheManager.IsVersionCached(_versionContext.Version))
             {
-                _logger.LogInformation("Evicted cached version v{Version} (LRU)", evicted);
+                var evicted = _cacheManager.EvictIfNeeded();
+                if (evicted is not null)
+                {
+                    _logger.LogInformation("Evicted cached version v{Version} (LRU)", evicted);
+                }
             }
 
             _logger.LogInformation("Cloning MudBlazor repository at tag {Tag} to {Path}",

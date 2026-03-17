@@ -104,6 +104,22 @@ public class VersionCacheManagerTests : IDisposable
         Assert.True(manager2.IsVersionCached("9.0.0"));
     }
 
+    [Fact]
+    public void Constructor_SelfHeals_WhenManifestIsCorrupted()
+    {
+        // Write corrupt JSON to versions.json
+        var manifestPath = Path.Combine(_testDataPath, "versions.json");
+        File.WriteAllText(manifestPath, "{{not valid json!!");
+
+        // Should not throw — self-heals by returning an empty manifest
+        var manager = new VersionCacheManager(_testDataPath, maxVersions: 3);
+        Assert.False(manager.IsVersionCached("9.0.0"));
+
+        // Should be able to register a new version (which overwrites the bad file)
+        manager.RegisterVersion("9.0.0");
+        Assert.True(manager.IsVersionCached("9.0.0"));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDataPath))

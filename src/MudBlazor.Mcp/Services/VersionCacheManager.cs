@@ -69,8 +69,16 @@ public sealed class VersionCacheManager : IVersionCacheManager
     {
         if (!File.Exists(_manifestPath))
             return new VersionManifest();
-        var json = File.ReadAllText(_manifestPath);
-        return JsonSerializer.Deserialize<VersionManifest>(json) ?? new VersionManifest();
+        try
+        {
+            var json = File.ReadAllText(_manifestPath);
+            return JsonSerializer.Deserialize<VersionManifest>(json) ?? new VersionManifest();
+        }
+        catch (JsonException)
+        {
+            // Self-heal: corrupted manifest is replaced with an empty one on next Save().
+            return new VersionManifest();
+        }
     }
 
     private void Save()
