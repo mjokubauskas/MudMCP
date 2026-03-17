@@ -51,7 +51,8 @@ public class ComponentIndexerTests : IDisposable
         XmlDocParser? xmlParser = null,
         RazorDocParser? razorParser = null,
         ExampleExtractor? exampleExtractor = null,
-        CategoryMapper? categoryMapper = null)
+        CategoryMapper? categoryMapper = null,
+        string? dataPath = null)
     {
         gitService ??= Mock.Of<IGitRepositoryService>(s => 
             s.IsAvailable == true && 
@@ -66,7 +67,9 @@ public class ComponentIndexerTests : IDisposable
         var options = Options.Create(new MudBlazorOptions());
         var logger = Mock.Of<ILogger<ComponentIndexer>>();
 
-        var versionContext = new VersionContext($"0.0.0-test-{Guid.NewGuid():N}");
+        // Use a temp data path so cached index files don't leak onto the real file system.
+        var basePath = dataPath ?? Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
+        var versionContext = new VersionContext($"0.0.0-test-{Guid.NewGuid():N}", basePath);
 
         return new ComponentIndexer(
             gitService,

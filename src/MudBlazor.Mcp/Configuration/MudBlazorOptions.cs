@@ -40,6 +40,11 @@ public sealed class RepositoryOptions
     public string Url { get; set; } = "https://github.com/MudBlazor/MudBlazor.git";
 
     /// <summary>
+    /// Base directory for all per-version cache data (repos, indexes, versions.json).
+    /// </summary>
+    public string DataPath { get; set; } = "./data";
+
+    /// <summary>
     /// Maximum number of cached repository versions to keep on disk.
     /// </summary>
     public int MaxCachedVersions { get; set; } = 3;

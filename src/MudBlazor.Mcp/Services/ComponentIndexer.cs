@@ -120,6 +120,8 @@ public sealed class ComponentIndexer : IComponentIndexer
         }
     }
 
+    private const int CacheSchemaVersion = 1;
+
     private async Task<bool> TryLoadCachedIndexAsync(CancellationToken cancellationToken)
     {
         var indexPath = _versionContext.IndexPath;
@@ -130,6 +132,17 @@ public sealed class ComponentIndexer : IComponentIndexer
             var json = await File.ReadAllTextAsync(indexPath, cancellationToken).ConfigureAwait(false);
             var cached = JsonSerializer.Deserialize<CachedIndex>(json);
             if (cached is null) return false;
+
+            // Invalidate if schema version or parsing options don't match the current configuration.
+            if (cached.SchemaVersion != CacheSchemaVersion
+                || cached.IncludeInternalComponents != _options.Parsing.IncludeInternalComponents
+                || cached.IncludeDeprecatedComponents != _options.Parsing.IncludeDeprecatedComponents
+                || cached.MaxExamplesPerComponent != _options.Parsing.MaxExamplesPerComponent)
+            {
+                _logger.LogInformation("Cached index at {Path} is stale (schema or options mismatch), will rebuild", indexPath);
+                TryDeleteCacheFile(indexPath);
+                return false;
+            }
 
             _components.Clear();
             foreach (var component in cached.Components)
@@ -144,6 +157,7 @@ public sealed class ComponentIndexer : IComponentIndexer
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load cached index from {Path}, will rebuild", indexPath);
+            TryDeleteCacheFile(indexPath);
             return false;
         }
     }
@@ -153,6 +167,10 @@ public sealed class ComponentIndexer : IComponentIndexer
         try
         {
             var cached = new CachedIndex(
+                CacheSchemaVersion,
+                _options.Parsing.IncludeInternalComponents,
+                _options.Parsing.IncludeDeprecatedComponents,
+                _options.Parsing.MaxExamplesPerComponent,
                 _components.Values.ToList(),
                 _apiReferences.Values.ToList());
 
@@ -170,7 +188,23 @@ public sealed class ComponentIndexer : IComponentIndexer
         }
     }
 
+    private void TryDeleteCacheFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete stale cache file {Path}", path);
+        }
+    }
+
     private sealed record CachedIndex(
+        int SchemaVersion,
+        bool IncludeInternalComponents,
+        bool IncludeDeprecatedComponents,
+        int MaxExamplesPerComponent,
         List<ComponentInfo> Components,
         List<ApiReference> ApiReferences);
 

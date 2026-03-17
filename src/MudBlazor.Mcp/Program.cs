@@ -128,16 +128,16 @@ else
 
 static void RegisterCoreServices(IServiceCollection services, IConfiguration configuration, string version)
 {
-    services.AddSingleton(new VersionContext(version));
     services.Configure<MudBlazorOptions>(configuration.GetSection("MudBlazor"));
     services.Configure<RepositoryOptions>(configuration.GetSection("MudBlazor:Repository"));
     services.Configure<CacheOptions>(configuration.GetSection("MudBlazor:Cache"));
     services.Configure<ParsingOptions>(configuration.GetSection("MudBlazor:Parsing"));
 
-    // Read MaxCachedVersions from config
+    // Read config to derive shared data path
     var repoOptions = configuration.GetSection("MudBlazor:Repository").Get<RepositoryOptions>() ?? new RepositoryOptions();
+    services.AddSingleton(new VersionContext(version, repoOptions.DataPath));
     services.AddSingleton<IVersionCacheManager>(
-        new VersionCacheManager("./data", repoOptions.MaxCachedVersions));
+        new VersionCacheManager(repoOptions.DataPath, repoOptions.MaxCachedVersions));
 
     services.AddMemoryCache();
 

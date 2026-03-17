@@ -9,5 +9,11 @@ public interface IVersionCacheManager
     void RegisterVersion(string version);
     void TouchVersion(string version);
     DateTimeOffset? GetLastUsed(string version);
-    string? EvictIfNeeded();
+
+    /// <summary>
+    /// Evicts the least-recently-used cached version to make room for a new one.
+    /// Must be called <b>before</b> registering a new version.
+    /// Returns the evicted version string, or <c>null</c> if no eviction was needed.
+    /// </summary>
+    string? EvictToMakeRoomForNewVersion();
 }
