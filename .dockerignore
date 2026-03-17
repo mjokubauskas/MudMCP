@@ -29,8 +29,3 @@ publish/
 *.suo
 .DS_Store
 Thumbs.db
-
-# Docker files themselves
-Dockerfile
-docker-compose*.yml
-.dockerignore

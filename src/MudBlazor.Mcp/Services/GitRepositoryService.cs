@@ -80,6 +80,8 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
             {
                 _logger.LogInformation("Repository for v{Version} already available at {Path}",
                     _versionContext.Version, RepositoryPath);
+                // Upsert: register if missing (e.g., versions.json was deleted/corrupted), then touch.
+                _cacheManager.RegisterVersion(_versionContext.Version);
                 _cacheManager.TouchVersion(_versionContext.Version);
                 return false;
             }

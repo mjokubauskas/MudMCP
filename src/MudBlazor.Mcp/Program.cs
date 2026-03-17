@@ -38,7 +38,7 @@ if (versionIndex < 0 || versionIndex + 1 >= args.Length)
 }
 var mudBlazorVersion = args[versionIndex + 1];
 
-if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\.\d+"))
+if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\.\d+$"))
 {
     Console.Error.WriteLine($"Error: '{mudBlazorVersion}' is not a valid version. Expected format: X.Y.Z (e.g., 9.0.0)");
     return 1;
