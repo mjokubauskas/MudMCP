@@ -91,11 +91,12 @@ public sealed class VersionCacheManager : IVersionCacheManager
         if (!Save())
         {
             // The directory is already deleted but we failed to persist the updated
-            // manifest. Log a warning — the in-memory state is still correct, and the
-            // next startup will notice the missing directory entry is orphaned.
+            // manifest. Report failure so callers know eviction was not fully
+            // persisted to disk.
             _logger.LogWarning(
                 "Evicted version directory {Path} was deleted but manifest save failed; in-memory state is correct but {ManifestPath} may be stale",
                 versionDir, _manifestPath);
+            return new EvictionResult(EvictionStatus.Failed);
         }
 
         return new EvictionResult(EvictionStatus.Evicted, oldest.Version);

@@ -96,9 +96,12 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
                         _logger.LogInformation("Evicted cached version v{Version} (LRU)", eviction.EvictedVersion);
                         break;
                     case EvictionStatus.Failed:
-                        _logger.LogWarning(
-                            "Eviction failed; proceeding with clone but cache may exceed MaxCachedVersions");
-                        break;
+                        _logger.LogError(
+                            "Eviction failed for MudBlazor v{Version}; aborting clone to avoid exceeding MaxCachedVersions",
+                            _versionContext.Version);
+                        throw new InvalidOperationException(
+                            $"Failed to evict an existing cached MudBlazor version; cannot cache new version {_versionContext.Version}.");
+
                 }
             }
 
