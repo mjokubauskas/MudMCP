@@ -36,7 +36,8 @@ public sealed class VersionCacheManager : IVersionCacheManager
     {
         if (IsVersionCached(version)) return;
         _manifest.Versions.Add(new VersionEntry(version, $"v{version}", _timeProvider.GetUtcNow()));
-        Save();
+        if (!Save())
+            _logger.LogWarning("Failed to persist manifest after registering version {Version}; in-memory state is correct but {ManifestPath} may be stale", version, _manifestPath);
     }
 
     public void TouchVersion(string version)
@@ -44,7 +45,8 @@ public sealed class VersionCacheManager : IVersionCacheManager
         var entry = _manifest.Versions.FirstOrDefault(v => v.Version == version);
         if (entry is null) return;
         entry.LastUsed = _timeProvider.GetUtcNow();
-        Save();
+        if (!Save())
+            _logger.LogWarning("Failed to persist manifest after touching version {Version}; in-memory state is correct but {ManifestPath} may be stale", version, _manifestPath);
     }
 
     public DateTimeOffset? GetLastUsed(string version)
@@ -74,6 +76,10 @@ public sealed class VersionCacheManager : IVersionCacheManager
                     file.Attributes = FileAttributes.Normal;
                 Directory.Delete(versionDir, true);
             }
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Directory was already removed (race between Exists() and Delete()) — treat as success.
         }
         catch (IOException ex)
         {
