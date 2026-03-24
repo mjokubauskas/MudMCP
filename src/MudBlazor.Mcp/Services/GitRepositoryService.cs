@@ -146,6 +146,7 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
             }, cancellationToken).ConfigureAwait(false);
 
             _cacheManager.RegisterVersion(_versionContext.Version);
+            _cacheManager.TouchVersion(_versionContext.Version);
 
             _logger.LogInformation("Successfully cloned MudBlazor v{Version}. Commit: {Commit}",
                 _versionContext.Version, CurrentCommitHash);
