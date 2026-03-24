@@ -101,7 +101,18 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
                             _versionContext.Version);
                         throw new InvalidOperationException(
                             $"Failed to evict an existing cached MudBlazor version; cannot cache new version {_versionContext.Version}.");
-
+                    case EvictionStatus.NotNeeded:
+                        _logger.LogDebug(
+                            "No eviction needed when caching MudBlazor v{Version}; within MaxCachedVersions limit",
+                            _versionContext.Version);
+                        break;
+                    default:
+                        _logger.LogError(
+                            "Unhandled eviction status {Status} when preparing to cache MudBlazor v{Version}",
+                            eviction.Status,
+                            _versionContext.Version);
+                        throw new InvalidOperationException(
+                            $"Unhandled eviction status '{eviction.Status}' while preparing to cache MudBlazor version '{_versionContext.Version}'.");
                 }
             }
 
