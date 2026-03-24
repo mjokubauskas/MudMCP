@@ -70,16 +70,13 @@ public sealed class VersionCacheManager : IVersionCacheManager
         var versionDir = Path.Combine(_dataPath, $"v{oldest.Version}");
         try
         {
-            if (Directory.Exists(versionDir))
-            {
-                foreach (var file in new DirectoryInfo(versionDir).GetFiles("*", SearchOption.AllDirectories))
-                    file.Attributes = FileAttributes.Normal;
-                Directory.Delete(versionDir, true);
-            }
+            foreach (var file in new DirectoryInfo(versionDir).GetFiles("*", SearchOption.AllDirectories))
+                file.Attributes = FileAttributes.Normal;
+            Directory.Delete(versionDir, true);
         }
         catch (DirectoryNotFoundException)
         {
-            // Directory was already removed (race between Exists() and Delete()) — treat as success.
+            // Directory was already removed (race between enumeration/delete and manifest update) — treat as success.
         }
         catch (IOException ex)
         {
