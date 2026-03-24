@@ -191,7 +191,13 @@ public sealed class ComponentIndexer : IComponentIndexer
             var dir = Path.GetDirectoryName(_versionContext.IndexPath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
-            var json = JsonSerializer.Serialize(cached, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(
+                cached,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    IgnoreReadOnlyProperties = true,
+                });
             await File.WriteAllTextAsync(_versionContext.IndexPath, json, cancellationToken).ConfigureAwait(false);
 
             _logger.LogInformation("Saved index cache to {Path}", _versionContext.IndexPath);
