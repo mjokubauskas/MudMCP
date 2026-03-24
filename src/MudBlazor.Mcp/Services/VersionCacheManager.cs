@@ -124,13 +124,13 @@ public sealed class VersionCacheManager : IVersionCacheManager
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "IO error reading versions manifest at {Path}, starting fresh", _manifestPath);
-            return new VersionManifest();
+            _logger.LogError(ex, "IO error reading versions manifest at {Path}, cannot continue", _manifestPath);
+            throw;
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex, "Permission error reading versions manifest at {Path}, starting fresh", _manifestPath);
-            return new VersionManifest();
+            _logger.LogError(ex, "Permission error reading versions manifest at {Path}, cannot continue", _manifestPath);
+            throw;
         }
     }
 
