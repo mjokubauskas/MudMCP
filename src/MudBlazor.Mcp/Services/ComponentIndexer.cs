@@ -90,6 +90,11 @@ public sealed class ComponentIndexer : IComponentIndexer
             _logger.LogInformation("Starting index build for v{Version}...", _versionContext.Version);
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
+            // Clear any stale in-memory state before performing a full rebuild so that
+            // removed components/API refs from a previous run don't leak into the new index.
+            _components.Clear();
+            _apiReferences.Clear();
+
             await _gitService.EnsureRepositoryAsync(cancellationToken).ConfigureAwait(false);
 
             if (!_gitService.IsAvailable)
