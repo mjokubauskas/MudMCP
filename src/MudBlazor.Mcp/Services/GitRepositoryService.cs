@@ -89,10 +89,30 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
             // Only evict when adding a truly new version to the cache.
             if (!_cacheManager.IsVersionCached(_versionContext.Version))
             {
-                var evicted = _cacheManager.EvictIfNeeded();
-                if (evicted is not null)
+                var eviction = _cacheManager.EvictToMakeRoomForNewVersion();
+                switch (eviction.Status)
                 {
-                    _logger.LogInformation("Evicted cached version v{Version} (LRU)", evicted);
+                    case EvictionStatus.Evicted:
+                        _logger.LogInformation("Evicted cached version v{Version} (LRU)", eviction.EvictedVersion);
+                        break;
+                    case EvictionStatus.Failed:
+                        _logger.LogError(
+                            "Eviction failed for MudBlazor v{Version}; aborting clone to avoid exceeding MaxCachedVersions",
+                            _versionContext.Version);
+                        throw new InvalidOperationException(
+                            $"Failed to evict an existing cached MudBlazor version; cannot cache new version {_versionContext.Version}.");
+                    case EvictionStatus.NotNeeded:
+                        _logger.LogDebug(
+                            "No eviction needed when caching MudBlazor v{Version}; within MaxCachedVersions limit",
+                            _versionContext.Version);
+                        break;
+                    default:
+                        _logger.LogError(
+                            "Unhandled eviction status {Status} when preparing to cache MudBlazor v{Version}",
+                            eviction.Status,
+                            _versionContext.Version);
+                        throw new InvalidOperationException(
+                            $"Unhandled eviction status '{eviction.Status}' while preparing to cache MudBlazor version '{_versionContext.Version}'.");
                 }
             }
 

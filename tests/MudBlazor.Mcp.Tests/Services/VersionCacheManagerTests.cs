@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Mud MCP Contributors
+// Licensed under the GNU General Public License v2.0. See LICENSE file in the project root for full license information.
+
 using MudBlazor.Mcp.Services;
 
 namespace MudBlazor.Mcp.Tests.Services;
@@ -27,7 +30,7 @@ public class VersionCacheManagerTests : IDisposable
         _testDataPath = Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_testDataPath);
         _timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        _manager = new VersionCacheManager(_testDataPath, maxVersions: 3, _timeProvider);
+        _manager = new VersionCacheManager(_testDataPath, maxVersions: 3, timeProvider: _timeProvider);
     }
 
     [Fact]
@@ -55,7 +58,7 @@ public class VersionCacheManagerTests : IDisposable
     }
 
     [Fact]
-    public void EvictIfNeeded_RemovesOldestWhenAtCapacity()
+    public void EvictToMakeRoomForNewVersion_RemovesOldestWhenAtCapacity()
     {
         _manager.RegisterVersion("7.0.0");
         _timeProvider.Advance(TimeSpan.FromSeconds(1));
@@ -68,17 +71,20 @@ public class VersionCacheManagerTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_testDataPath, "v8.0.0"));
         Directory.CreateDirectory(Path.Combine(_testDataPath, "v9.0.0"));
 
-        var evicted = _manager.EvictIfNeeded();
-        Assert.Equal("7.0.0", evicted);
+        var result = _manager.EvictToMakeRoomForNewVersion();
+        Assert.Equal(EvictionStatus.Evicted, result.Status);
+        Assert.Equal("7.0.0", result.EvictedVersion);
         Assert.False(_manager.IsVersionCached("7.0.0"));
         Assert.False(Directory.Exists(Path.Combine(_testDataPath, "v7.0.0")));
     }
 
     [Fact]
-    public void EvictIfNeeded_ReturnsNull_WhenUnderCapacity()
+    public void EvictToMakeRoomForNewVersion_ReturnsNotNeeded_WhenUnderCapacity()
     {
         _manager.RegisterVersion("9.0.0");
-        Assert.Null(_manager.EvictIfNeeded());
+        var result = _manager.EvictToMakeRoomForNewVersion();
+        Assert.Equal(EvictionStatus.NotNeeded, result.Status);
+        Assert.Null(result.EvictedVersion);
     }
 
     [Fact]

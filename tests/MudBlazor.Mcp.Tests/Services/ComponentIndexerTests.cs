@@ -45,13 +45,28 @@ public class ComponentIndexerTests : IDisposable
         return dir;
     }
 
-    private static ComponentIndexer CreateIndexer(
+    private ComponentIndexer CreateIndexer(
         IGitRepositoryService? gitService = null,
         IDocumentationCache? cache = null,
         XmlDocParser? xmlParser = null,
         RazorDocParser? razorParser = null,
         ExampleExtractor? exampleExtractor = null,
-        CategoryMapper? categoryMapper = null)
+        CategoryMapper? categoryMapper = null,
+        string? dataPath = null)
+    {
+        var (indexer, _) = CreateIndexerWithContext(gitService, cache, xmlParser, razorParser, exampleExtractor, categoryMapper, dataPath);
+        return indexer;
+    }
+
+    private (ComponentIndexer Indexer, VersionContext Context) CreateIndexerWithContext(
+        IGitRepositoryService? gitService = null,
+        IDocumentationCache? cache = null,
+        XmlDocParser? xmlParser = null,
+        RazorDocParser? razorParser = null,
+        ExampleExtractor? exampleExtractor = null,
+        CategoryMapper? categoryMapper = null,
+        string? dataPath = null,
+        MudBlazorOptions? mudBlazorOptions = null)
     {
         gitService ??= Mock.Of<IGitRepositoryService>(s => 
             s.IsAvailable == true && 
@@ -63,12 +78,15 @@ public class ComponentIndexerTests : IDisposable
         exampleExtractor ??= new ExampleExtractor(Mock.Of<ILogger<ExampleExtractor>>());
         categoryMapper ??= new CategoryMapper(Mock.Of<ILogger<CategoryMapper>>());
         
-        var options = Options.Create(new MudBlazorOptions());
+        var options = Options.Create(mudBlazorOptions ?? new MudBlazorOptions());
         var logger = Mock.Of<ILogger<ComponentIndexer>>();
 
-        var versionContext = new VersionContext($"0.0.0-test-{Guid.NewGuid():N}");
+        // Use a temp data path so cached index files don't leak onto the real file system.
+        var basePath = dataPath ?? Path.Combine(Path.GetTempPath(), $"mudmcp-test-{Guid.NewGuid():N}");
+        _tempDirs.Add(basePath);
+        var versionContext = new VersionContext($"0.0.0-test-{Guid.NewGuid():N}", basePath);
 
-        return new ComponentIndexer(
+        var indexer = new ComponentIndexer(
             gitService,
             cache,
             xmlParser,
@@ -78,6 +96,8 @@ public class ComponentIndexerTests : IDisposable
             versionContext,
             options,
             logger);
+
+        return (indexer, versionContext);
     }
 
     [Fact]
@@ -280,5 +300,141 @@ public class ComponentIndexerTests : IDisposable
         Assert.Equal(2, all.Count);
         Assert.Contains(all, c => c.Name == "MudGrid");
         Assert.Contains(all, c => c.Name == "MudItem");
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_WithStaleCacheSchemaVersion_DeletesAndRebuilds()
+    {
+        // Arrange — create a repo with one component, and a stale index.json with wrong SchemaVersion
+        var repoPath = CreateTempRepoDir();
+        var buttonDir = Path.Combine(repoPath, "src", "MudBlazor", "Components", "Button");
+        Directory.CreateDirectory(buttonDir);
+
+        await File.WriteAllTextAsync(Path.Combine(buttonDir, "MudButton.razor.cs"), """
+            namespace MudBlazor;
+            public partial class MudButton : MudBaseButton
+            {
+                [Parameter] public string? Label { get; set; }
+            }
+            """);
+
+        var gitService = new Mock<IGitRepositoryService>();
+        gitService.Setup(g => g.IsAvailable).Returns(true);
+        gitService.Setup(g => g.RepositoryPath).Returns(repoPath);
+        gitService.Setup(g => g.EnsureRepositoryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var (indexer, context) = CreateIndexerWithContext(gitService: gitService.Object);
+
+        // Write a stale index.json with a wrong SchemaVersion (999)
+        Directory.CreateDirectory(Path.GetDirectoryName(context.IndexPath)!);
+        var staleJson = """
+            {
+                "SchemaVersion": 999,
+                "IncludeInternalComponents": false,
+                "IncludeDeprecatedComponents": true,
+                "MaxExamplesPerComponent": 20,
+                "Components": [],
+                "ApiReferences": []
+            }
+            """;
+        await File.WriteAllTextAsync(context.IndexPath, staleJson);
+
+        // Act — should detect stale schema, delete the file, and rebuild from repo
+        await indexer.BuildIndexAsync();
+
+        // Assert — component was indexed from the repo (not the empty stale cache)
+        var all = await indexer.GetAllComponentsAsync();
+        Assert.Single(all);
+        Assert.Contains(all, c => c.Name == "MudButton");
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_WithStaleCacheOptions_DeletesAndRebuilds()
+    {
+        // Arrange — create a repo with one component, and a stale index.json with mismatched options
+        var repoPath = CreateTempRepoDir();
+        var buttonDir = Path.Combine(repoPath, "src", "MudBlazor", "Components", "Button");
+        Directory.CreateDirectory(buttonDir);
+
+        await File.WriteAllTextAsync(Path.Combine(buttonDir, "MudButton.razor.cs"), """
+            namespace MudBlazor;
+            public partial class MudButton : MudBaseButton
+            {
+                [Parameter] public string? Label { get; set; }
+            }
+            """);
+
+        var gitService = new Mock<IGitRepositoryService>();
+        gitService.Setup(g => g.IsAvailable).Returns(true);
+        gitService.Setup(g => g.RepositoryPath).Returns(repoPath);
+        gitService.Setup(g => g.EnsureRepositoryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Default options: IncludeInternalComponents=false, IncludeDeprecatedComponents=true, MaxExamplesPerComponent=20
+        var (indexer, context) = CreateIndexerWithContext(gitService: gitService.Object);
+
+        // Write a stale index.json with correct SchemaVersion but mismatched IncludeInternalComponents
+        Directory.CreateDirectory(Path.GetDirectoryName(context.IndexPath)!);
+        var staleJson = """
+            {
+                "SchemaVersion": 1,
+                "IncludeInternalComponents": true,
+                "IncludeDeprecatedComponents": true,
+                "MaxExamplesPerComponent": 20,
+                "Components": [],
+                "ApiReferences": []
+            }
+            """;
+        await File.WriteAllTextAsync(context.IndexPath, staleJson);
+
+        // Act — should detect options mismatch, delete the stale file, and rebuild
+        await indexer.BuildIndexAsync();
+
+        // Assert — component was indexed from the repo (not the empty stale cache)
+        var all = await indexer.GetAllComponentsAsync();
+        Assert.Single(all);
+        Assert.Contains(all, c => c.Name == "MudButton");
+        // The stale file should have been deleted and replaced with a new one
+        Assert.True(File.Exists(context.IndexPath));
+    }
+
+    [Fact]
+    public async Task BuildIndexAsync_WithCorruptedCacheFile_DeletesAndRebuilds()
+    {
+        // Arrange — create a repo with one component, and a corrupted (non-JSON) index.json
+        var repoPath = CreateTempRepoDir();
+        var buttonDir = Path.Combine(repoPath, "src", "MudBlazor", "Components", "Button");
+        Directory.CreateDirectory(buttonDir);
+
+        await File.WriteAllTextAsync(Path.Combine(buttonDir, "MudButton.razor.cs"), """
+            namespace MudBlazor;
+            public partial class MudButton : MudBaseButton
+            {
+                [Parameter] public string? Label { get; set; }
+            }
+            """);
+
+        var gitService = new Mock<IGitRepositoryService>();
+        gitService.Setup(g => g.IsAvailable).Returns(true);
+        gitService.Setup(g => g.RepositoryPath).Returns(repoPath);
+        gitService.Setup(g => g.EnsureRepositoryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var (indexer, context) = CreateIndexerWithContext(gitService: gitService.Object);
+
+        // Write corrupt data to the index.json path
+        Directory.CreateDirectory(Path.GetDirectoryName(context.IndexPath)!);
+        await File.WriteAllTextAsync(context.IndexPath, "{{not valid json!!");
+
+        // Act — should detect corruption, delete the bad file, and rebuild from repo
+        await indexer.BuildIndexAsync();
+
+        // Assert — component was indexed from the repo (not the corrupted cache)
+        var all = await indexer.GetAllComponentsAsync();
+        Assert.Single(all);
+        Assert.Contains(all, c => c.Name == "MudButton");
+        // The corrupted file should have been deleted and replaced with a valid one
+        Assert.True(File.Exists(context.IndexPath));
     }
 }

@@ -90,6 +90,11 @@ public sealed class ComponentIndexer : IComponentIndexer
             _logger.LogInformation("Starting index build for v{Version}...", _versionContext.Version);
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
+            // Clear any stale in-memory state before performing a full rebuild so that
+            // removed components/API refs from a previous run don't leak into the new index.
+            _components.Clear();
+            _apiReferences.Clear();
+
             await _gitService.EnsureRepositoryAsync(cancellationToken).ConfigureAwait(false);
 
             if (!_gitService.IsAvailable)
@@ -120,6 +125,13 @@ public sealed class ComponentIndexer : IComponentIndexer
         }
     }
 
+    /// <summary>
+    /// Schema version for the on-disk cache format. Increment this value whenever the
+    /// <see cref="CachedIndex"/> record structure changes or the serialization format
+    /// is updated in a backward-incompatible way, so stale caches are automatically rebuilt.
+    /// </summary>
+    private const int CacheSchemaVersion = 1;
+
     private async Task<bool> TryLoadCachedIndexAsync(CancellationToken cancellationToken)
     {
         var indexPath = _versionContext.IndexPath;
@@ -131,6 +143,17 @@ public sealed class ComponentIndexer : IComponentIndexer
             var cached = JsonSerializer.Deserialize<CachedIndex>(json);
             if (cached is null) return false;
 
+            // Invalidate if schema version or parsing options don't match the current configuration.
+            if (cached.SchemaVersion != CacheSchemaVersion
+                || cached.IncludeInternalComponents != _options.Parsing.IncludeInternalComponents
+                || cached.IncludeDeprecatedComponents != _options.Parsing.IncludeDeprecatedComponents
+                || cached.MaxExamplesPerComponent != _options.Parsing.MaxExamplesPerComponent)
+            {
+                _logger.LogInformation("Cached index at {Path} is stale (schema or options mismatch), will rebuild", indexPath);
+                TryDeleteCacheFile(indexPath);
+                return false;
+            }
+
             _components.Clear();
             foreach (var component in cached.Components)
                 _components[component.Name] = component;
@@ -141,9 +164,14 @@ public sealed class ComponentIndexer : IComponentIndexer
 
             return true;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load cached index from {Path}, will rebuild", indexPath);
+            TryDeleteCacheFile(indexPath);
             return false;
         }
     }
@@ -153,6 +181,10 @@ public sealed class ComponentIndexer : IComponentIndexer
         try
         {
             var cached = new CachedIndex(
+                CacheSchemaVersion,
+                _options.Parsing.IncludeInternalComponents,
+                _options.Parsing.IncludeDeprecatedComponents,
+                _options.Parsing.MaxExamplesPerComponent,
                 _components.Values.ToList(),
                 _apiReferences.Values.ToList());
 
@@ -164,13 +196,33 @@ public sealed class ComponentIndexer : IComponentIndexer
 
             _logger.LogInformation("Saved index cache to {Path}", _versionContext.IndexPath);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to save index cache — server will work but next startup will re-index");
         }
     }
 
+    private void TryDeleteCacheFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete stale cache file {Path}", path);
+        }
+    }
+
     private sealed record CachedIndex(
+        int SchemaVersion,
+        bool IncludeInternalComponents,
+        bool IncludeDeprecatedComponents,
+        int MaxExamplesPerComponent,
         List<ComponentInfo> Components,
         List<ApiReference> ApiReferences);
 

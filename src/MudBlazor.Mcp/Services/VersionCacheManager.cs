@@ -2,6 +2,8 @@
 // Licensed under the GNU General Public License v2.0. See LICENSE file in the project root for full license information.
 
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MudBlazor.Mcp.Services;
 
@@ -11,9 +13,10 @@ public sealed class VersionCacheManager : IVersionCacheManager
     private readonly int _maxVersions;
     private readonly string _manifestPath;
     private readonly TimeProvider _timeProvider;
+    private readonly ILogger<VersionCacheManager> _logger;
     private VersionManifest _manifest;
 
-    public VersionCacheManager(string dataPath, int maxVersions = 3, TimeProvider? timeProvider = null)
+    public VersionCacheManager(string dataPath, int maxVersions = 3, TimeProvider? timeProvider = null, ILogger<VersionCacheManager>? logger = null)
     {
         if (maxVersions < 1)
             throw new ArgumentOutOfRangeException(nameof(maxVersions), maxVersions, "Must be at least 1.");
@@ -21,6 +24,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
         _dataPath = dataPath;
         _maxVersions = maxVersions;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _logger = logger ?? NullLogger<VersionCacheManager>.Instance;
         _manifestPath = Path.Combine(dataPath, "versions.json");
         _manifest = LoadManifest();
     }
@@ -32,7 +36,8 @@ public sealed class VersionCacheManager : IVersionCacheManager
     {
         if (IsVersionCached(version)) return;
         _manifest.Versions.Add(new VersionEntry(version, $"v{version}", _timeProvider.GetUtcNow()));
-        Save();
+        if (!Save())
+            _logger.LogWarning("Failed to persist manifest after registering version {Version}; in-memory state is correct but {ManifestPath} may be stale", version, _manifestPath);
     }
 
     public void TouchVersion(string version)
@@ -40,29 +45,64 @@ public sealed class VersionCacheManager : IVersionCacheManager
         var entry = _manifest.Versions.FirstOrDefault(v => v.Version == version);
         if (entry is null) return;
         entry.LastUsed = _timeProvider.GetUtcNow();
-        Save();
+        if (!Save())
+            _logger.LogWarning("Failed to persist manifest after touching version {Version}; in-memory state is correct but {ManifestPath} may be stale", version, _manifestPath);
     }
 
     public DateTimeOffset? GetLastUsed(string version)
         => _manifest.Versions.FirstOrDefault(v => v.Version == version)?.LastUsed;
 
-    public string? EvictIfNeeded()
+    /// <summary>
+    /// Evicts the least-recently-used cached version to make room for a new one.
+    /// Must be called <b>before</b> registering a new version when the caller intends
+    /// to add a version that is not yet tracked by the manifest.
+    /// </summary>
+    public EvictionResult EvictToMakeRoomForNewVersion()
     {
-        if (_manifest.Versions.Count < _maxVersions) return null;
+        if (_manifest.Versions.Count < _maxVersions)
+            return new EvictionResult(EvictionStatus.NotNeeded);
 
         var oldest = _manifest.Versions.OrderBy(v => v.LastUsed).First();
-        _manifest.Versions.Remove(oldest);
-        Save();
 
+        // Delete the on-disk data first. Only remove from the manifest if
+        // deletion succeeds (or the directory doesn't exist) so the manifest
+        // stays in sync with what is actually on disk.
         var versionDir = Path.Combine(_dataPath, $"v{oldest.Version}");
-        if (Directory.Exists(versionDir))
+        try
         {
             foreach (var file in new DirectoryInfo(versionDir).GetFiles("*", SearchOption.AllDirectories))
                 file.Attributes = FileAttributes.Normal;
             Directory.Delete(versionDir, true);
         }
+        catch (DirectoryNotFoundException)
+        {
+            // Directory was already removed (race between enumeration/delete and manifest update) — treat as success.
+        }
+        catch (IOException ex)
+        {
+            _logger.LogWarning(ex, "IO error deleting evicted version directory {Path}; keeping manifest entry to retry later", versionDir);
+            return new EvictionResult(EvictionStatus.Failed);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Permission error deleting evicted version directory {Path}; keeping manifest entry to retry later", versionDir);
+            return new EvictionResult(EvictionStatus.Failed);
+        }
 
-        return oldest.Version;
+        // Directory is gone; update the manifest to match.
+        _manifest.Versions.Remove(oldest);
+        if (!Save())
+        {
+            // The directory is already deleted but we failed to persist the updated
+            // manifest. Report failure so callers know eviction was not fully
+            // persisted to disk.
+            _logger.LogWarning(
+                "Evicted version directory {Path} was deleted but manifest save failed; in-memory state is correct but {ManifestPath} may be stale",
+                versionDir, _manifestPath);
+            return new EvictionResult(EvictionStatus.Failed);
+        }
+
+        return new EvictionResult(EvictionStatus.Evicted, oldest.Version);
     }
 
     private VersionManifest LoadManifest()
@@ -74,27 +114,51 @@ public sealed class VersionCacheManager : IVersionCacheManager
             var json = File.ReadAllText(_manifestPath);
             return JsonSerializer.Deserialize<VersionManifest>(json) ?? new VersionManifest();
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            // Self-heal: corrupted manifest is replaced with an empty one on next Save().
+            _logger.LogWarning(ex, "Corrupted versions manifest at {Path}, starting fresh", _manifestPath);
             return new VersionManifest();
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "IO error reading versions manifest at {Path}, cannot continue", _manifestPath);
+            throw;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Permission error reading versions manifest at {Path}, cannot continue", _manifestPath);
+            throw;
         }
     }
 
-    private void Save()
+    private bool Save()
     {
-        Directory.CreateDirectory(_dataPath);
-        var json = JsonSerializer.Serialize(_manifest, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(_manifestPath, json);
+        try
+        {
+            Directory.CreateDirectory(_dataPath);
+            var json = JsonSerializer.Serialize(_manifest, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(_manifestPath, json);
+            return true;
+        }
+        catch (IOException ex)
+        {
+            _logger.LogWarning(ex, "IO error saving versions manifest to {Path}", _manifestPath);
+            return false;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Permission error saving versions manifest to {Path}", _manifestPath);
+            return false;
+        }
     }
 }
 
-public sealed class VersionManifest
+internal sealed class VersionManifest
 {
     public List<VersionEntry> Versions { get; set; } = [];
 }
 
-public sealed class VersionEntry
+internal sealed class VersionEntry
 {
     public string Version { get; set; }
     public string Tag { get; set; }

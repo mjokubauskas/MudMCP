@@ -23,6 +23,7 @@ services:
       - MUDBLAZOR_VERSION=9.0.0
       # Other supported overrides:
       # - MudBlazor__Repository__Url=https://github.com/MudBlazor/MudBlazor.git
+      # - MudBlazor__Repository__DataPath=/app/data
       # - MudBlazor__Repository__MaxCachedVersions=5
     healthcheck:
       # /health/live returns 200 immediately; /health/ready becomes healthy only
