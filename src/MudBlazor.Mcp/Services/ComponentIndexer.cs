@@ -196,6 +196,10 @@ public sealed class ComponentIndexer : IComponentIndexer
 
             _logger.LogInformation("Saved index cache to {Path}", _versionContext.IndexPath);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to save index cache — server will work but next startup will re-index");
