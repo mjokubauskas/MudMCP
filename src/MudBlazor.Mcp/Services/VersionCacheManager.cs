@@ -69,27 +69,8 @@ public sealed class VersionCacheManager : IVersionCacheManager
         // Delete the on-disk data first. Only remove from the manifest if
         // deletion succeeds (or the directory doesn't exist) so the manifest
         // stays in sync with what is actually on disk.
-        var versionDir = Path.Combine(_dataPath, $"v{oldest.Version}");
-        try
-        {
-            foreach (var file in new DirectoryInfo(versionDir).GetFiles("*", SearchOption.AllDirectories))
-                file.Attributes = FileAttributes.Normal;
-            Directory.Delete(versionDir, true);
-        }
-        catch (DirectoryNotFoundException)
-        {
-            // Directory was already removed (race between enumeration/delete and manifest update) — treat as success.
-        }
-        catch (IOException ex)
-        {
-            _logger.LogWarning(ex, "IO error deleting evicted version directory {Path}; keeping manifest entry to retry later", versionDir);
+        if (!TryDeleteVersionDirectory(oldest.Version))
             return new EvictionResult(EvictionStatus.Failed);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            _logger.LogWarning(ex, "Permission error deleting evicted version directory {Path}; keeping manifest entry to retry later", versionDir);
-            return new EvictionResult(EvictionStatus.Failed);
-        }
 
         // Directory is gone; update the manifest to match.
         _manifest.Versions.Remove(oldest);
@@ -99,8 +80,8 @@ public sealed class VersionCacheManager : IVersionCacheManager
             // manifest. Report failure so callers know eviction was not fully
             // persisted to disk.
             _logger.LogWarning(
-                "Evicted version directory {Path} was deleted but manifest save failed; in-memory state is correct but {ManifestPath} may be stale",
-                versionDir, _manifestPath);
+                "Evicted version directory for {Version} was deleted but manifest save failed; in-memory state is correct but {ManifestPath} may be stale",
+                oldest.Version, _manifestPath);
             return new EvictionResult(EvictionStatus.Failed);
         }
 
@@ -130,33 +111,10 @@ public sealed class VersionCacheManager : IVersionCacheManager
 
         foreach (var entry in toRemove)
         {
-            var versionDir = Path.Combine(_dataPath, $"v{entry.Version}");
-            try
+            if (TryDeleteVersionDirectory(entry.Version))
             {
-                if (Directory.Exists(versionDir))
-                {
-                    foreach (var file in new DirectoryInfo(versionDir).GetFiles("*", SearchOption.AllDirectories))
-                        file.Attributes = FileAttributes.Normal;
-                    Directory.Delete(versionDir, true);
-                }
                 _manifest.Versions.Remove(entry);
                 _logger.LogWarning("Pruned excess cached version {Version} (LRU)", entry.Version);
-            }
-            catch (DirectoryNotFoundException)
-            {
-                _manifest.Versions.Remove(entry);
-            }
-            catch (IOException ex)
-            {
-                _logger.LogWarning(ex,
-                    "IO error deleting excess version directory {Path}; keeping manifest entry to retry later",
-                    versionDir);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogWarning(ex,
-                    "Permission error deleting excess version directory {Path}; keeping manifest entry to retry later",
-                    versionDir);
             }
         }
 
@@ -222,32 +180,10 @@ public sealed class VersionCacheManager : IVersionCacheManager
             else
             {
                 // Over capacity — delete the orphan directory.
-                var orphanDir = Path.Combine(_dataPath, $"v{version}");
-                try
-                {
-                    foreach (var file in new DirectoryInfo(orphanDir).GetFiles("*", SearchOption.AllDirectories))
-                        file.Attributes = FileAttributes.Normal;
-                    Directory.Delete(orphanDir, true);
+                if (TryDeleteVersionDirectory(version))
                     _logger.LogWarning(
-                        "Deleted orphaned version directory {Path} (manifest at capacity {Max})",
-                        orphanDir, _maxVersions);
-                }
-                catch (DirectoryNotFoundException)
-                {
-                    // Already gone — no action needed.
-                }
-                catch (IOException ex)
-                {
-                    _logger.LogWarning(ex,
-                        "IO error deleting orphaned version directory {Path}; will retry on next startup",
-                        orphanDir);
-                }
-                catch (UnauthorizedAccessException ex)
-                {
-                    _logger.LogWarning(ex,
-                        "Permission error deleting orphaned version directory {Path}; will retry on next startup",
-                        orphanDir);
-                }
+                        "Deleted orphaned version directory v{Version} (manifest at capacity {Max})",
+                        version, _maxVersions);
             }
         }
 
@@ -255,6 +191,40 @@ public sealed class VersionCacheManager : IVersionCacheManager
             _logger.LogWarning(
                 "Failed to persist manifest after orphan reconciliation; in-memory state is correct but {ManifestPath} may be stale",
                 _manifestPath);
+    }
+
+    /// <summary>
+    /// Attempts to delete a version directory, normalizing file attributes first.
+    /// Returns <c>true</c> if the directory was deleted or did not exist;
+    /// <c>false</c> if deletion failed due to IO or permission errors.
+    /// </summary>
+    private bool TryDeleteVersionDirectory(string version)
+    {
+        var versionDir = Path.Combine(_dataPath, $"v{version}");
+        try
+        {
+            if (!Directory.Exists(versionDir))
+                return true;
+
+            foreach (var file in new DirectoryInfo(versionDir).GetFiles("*", SearchOption.AllDirectories))
+                file.Attributes = FileAttributes.Normal;
+            Directory.Delete(versionDir, true);
+            return true;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return true;
+        }
+        catch (IOException ex)
+        {
+            _logger.LogWarning(ex, "IO error deleting version directory {Path}", versionDir);
+            return false;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Permission error deleting version directory {Path}", versionDir);
+            return false;
+        }
     }
 
     private VersionManifest LoadManifest()
