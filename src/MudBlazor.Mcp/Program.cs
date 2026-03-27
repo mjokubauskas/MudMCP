@@ -16,7 +16,11 @@ var versionIndex = Array.IndexOf(args, "--version");
 if (versionIndex >= 0 && versionIndex + 1 < args.Length)
 {
     // Space-separated form: --version X.Y.Z
-    mudBlazorVersion = args[versionIndex + 1];
+    var candidate = args[versionIndex + 1];
+    if (!string.IsNullOrEmpty(candidate) && candidate[0] != '-')
+    {
+        mudBlazorVersion = candidate;
+    }
 }
 else
 {
