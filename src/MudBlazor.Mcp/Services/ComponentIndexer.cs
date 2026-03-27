@@ -196,7 +196,6 @@ public sealed class ComponentIndexer : IComponentIndexer
                 new JsonSerializerOptions
                 {
                     WriteIndented = true,
-                    IgnoreReadOnlyProperties = true,
                 });
             await File.WriteAllTextAsync(_versionContext.IndexPath, json, cancellationToken).ConfigureAwait(false);
 
