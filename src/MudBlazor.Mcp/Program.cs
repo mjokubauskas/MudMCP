@@ -32,14 +32,39 @@ else
     }
 }
 
-if (string.IsNullOrEmpty(mudBlazorVersion))
+// Normalize CLI argument: trim and treat empty/whitespace as missing
+if (!string.IsNullOrWhiteSpace(mudBlazorVersion))
 {
-    Console.Error.WriteLine("Error: --version argument is required.");
+    mudBlazorVersion = mudBlazorVersion.Trim();
+}
+else
+{
+    mudBlazorVersion = null;
+}
+
+// Fallback to environment variable (used by IIS hosting via web.config environmentVariables)
+if (string.IsNullOrWhiteSpace(mudBlazorVersion))
+{
+    var envVersion = Environment.GetEnvironmentVariable("MUDBLAZOR_VERSION");
+    if (!string.IsNullOrWhiteSpace(envVersion))
+    {
+        mudBlazorVersion = envVersion.Trim();
+    }
+    else
+    {
+        // Treat null, empty, or whitespace-only environment values as missing
+        mudBlazorVersion = null;
+    }
+}
+
+if (string.IsNullOrWhiteSpace(mudBlazorVersion))
+{
+    Console.Error.WriteLine("Error: --version argument or MUDBLAZOR_VERSION environment variable is required.");
     Console.Error.WriteLine();
     Console.Error.WriteLine("The MudBlazor MCP server requires a specific MudBlazor version to serve documentation for.");
     Console.Error.WriteLine("Find your version in your project's .csproj file: <PackageReference Include=\"MudBlazor\" Version=\"X.Y.Z\" />");
     Console.Error.WriteLine();
-    Console.Error.WriteLine("Add --version to your .mcp.json configuration:");
+    Console.Error.WriteLine("Option 1: Add --version to your .mcp.json configuration:");
     Console.Error.WriteLine();
     Console.Error.WriteLine("  {");
     Console.Error.WriteLine("    \"mcpServers\": {");
@@ -52,6 +77,8 @@ if (string.IsNullOrEmpty(mudBlazorVersion))
     Console.Error.WriteLine("      }");
     Console.Error.WriteLine("    }");
     Console.Error.WriteLine("  }");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Option 2: Set the MUDBLAZOR_VERSION environment variable (e.g., in IIS web.config).");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Replace 9.0.0 with your project's MudBlazor version.");
     return 1;
