@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Models;
 using MudBlazor.Mcp.Services;
 using MudBlazor.Mcp.Tools;
@@ -11,8 +12,10 @@ namespace MudBlazor.Mcp.Tests.Tools;
 
 public class ComponentListToolsTests
 {
-    private static readonly ILogger<ComponentListTools> NullLogger = 
+    private static readonly ILogger<ComponentListTools> NullLogger =
         NullLoggerFactory.Instance.CreateLogger<ComponentListTools>();
+
+    private static readonly VersionContext _versionContext = new("9.0.0");
 
     [Fact]
     public async Task ListComponentsAsync_WithNoFilter_ReturnsAllComponents()
@@ -21,7 +24,7 @@ public class ComponentListToolsTests
         var indexer = CreateMockIndexer();
 
         // Act
-        var result = await ComponentListTools.ListComponentsAsync(indexer, NullLogger, null, true, CancellationToken.None);
+        var result = await ComponentListTools.ListComponentsAsync(indexer, NullLogger, _versionContext, null, true, CancellationToken.None);
 
         // Assert
         Assert.Contains("MudButton", result);
@@ -36,7 +39,7 @@ public class ComponentListToolsTests
         var indexer = CreateMockIndexer();
 
         // Act - simulating what happens when MCP client doesn't send includeDetails
-        var result = await ComponentListTools.ListComponentsAsync(indexer, NullLogger, null, null, CancellationToken.None);
+        var result = await ComponentListTools.ListComponentsAsync(indexer, NullLogger, _versionContext, null, null, CancellationToken.None);
 
         // Assert - default is includeDetails=true, so details should be included
         Assert.Contains("MudButton", result);
@@ -50,7 +53,7 @@ public class ComponentListToolsTests
         var indexer = CreateMockIndexer();
 
         // Act
-        var result = await ComponentListTools.ListComponentsAsync(indexer, NullLogger, "Buttons", true, CancellationToken.None);
+        var result = await ComponentListTools.ListComponentsAsync(indexer, NullLogger, _versionContext, "Buttons", true, CancellationToken.None);
 
         // Assert
         Assert.Contains("MudButton", result);
@@ -70,7 +73,7 @@ public class ComponentListToolsTests
 
         // Act & Assert
         await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
-            await ComponentListTools.ListComponentsAsync(indexer.Object, NullLogger, "Unknown", true, CancellationToken.None));
+            await ComponentListTools.ListComponentsAsync(indexer.Object, NullLogger, _versionContext, "Unknown", true, CancellationToken.None));
     }
 
     [Fact]
@@ -80,7 +83,7 @@ public class ComponentListToolsTests
         var indexer = CreateMockIndexer();
 
         // Act
-        var result = await ComponentListTools.ListCategoriesAsync(indexer, NullLogger, CancellationToken.None);
+        var result = await ComponentListTools.ListCategoriesAsync(indexer, NullLogger, _versionContext, CancellationToken.None);
 
         // Assert
         Assert.Contains("Buttons", result);

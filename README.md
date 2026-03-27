@@ -29,10 +29,11 @@ Mud MCP bridges the gap between AI assistants and MudBlazor component documentat
 
 ### Key Value Propositions
 
-- **Real-time Documentation**: Always serves the latest documentation from MudBlazor's dev branch
+- **Version-Aware**: Serves documentation for the exact MudBlazor version your project uses
 - **AI-Optimized Output**: Formats responses in Markdown for optimal LLM consumption
 - **Production-Ready**: Built with Aspire 13.1, health checks, and observability
 - **Flexible Deployment**: Supports both HTTP and stdio transports
+- **Multi-Version Cache**: Caches up to 3 versions simultaneously with LRU eviction — instant startup after first run
 
 ---
 
@@ -92,37 +93,35 @@ Agent:
 dotnet build
 ```
 
-### 2. Run the Server
+### 2. Find Your MudBlazor Version
+
+Check your project's `.csproj` file for the MudBlazor version:
+
+```xml
+<PackageReference Include="MudBlazor" Version="9.0.0" />
+```
+
+### 3. Run the Server
+
+The `--version` argument is **required** and must match your project's MudBlazor version:
 
 ```bash
-dotnet run
+dotnet run --project src/MudBlazor.Mcp/MudBlazor.Mcp.csproj -- --version 9.0.0
 ```
 
 The server will:
-1. Clone the MudBlazor repository (~500MB)
-2. Build an in-memory index of all components
-3. Start the MCP server on `http://localhost:5180`
+1. Clone the MudBlazor repository and checkout the matching tag (`v9.0.0`)
+2. Parse all components using Roslyn and build an index
+3. Cache the index to disk — subsequent runs load instantly
+4. Start the MCP server on `http://localhost:5180`
 
-### 3. Verify
+### 4. Verify
 
 ```bash
 curl http://localhost:5180/health
 ```
 
-Expected response:
-```json
-{
-  "status": "Healthy",
-  "totalDuration": 15.2,
-  "checks": [{
-    "name": "indexer",
-    "status": "Healthy",
-    "description": "Index contains 85 components in 12 categories."
-  }]
-}
-```
-
-### 4. Connect Your AI Assistant
+### 5. Connect Your AI Assistant
 
 **VS Code / Cursor (HTTP mode, mcp.json):**
 ```json
@@ -140,11 +139,13 @@ Expected response:
 
 ## Local MCP (stdio — no frontend required)
 
-Run the MCP server locally without starting a web server or the Aspire dashboard. The server communicates directly through stdin/stdout, which is the native mode for Cursor, Claude Desktop, and most MCP clients.
+Run the MCP server locally without starting a web server or the Aspire dashboard. The server communicates directly through stdin/stdout, which is the native mode for Cursor, Claude Code, Claude Desktop, and most MCP clients.
+
+> **Important:** The `--version` argument is required. It must match the MudBlazor version in your project's `.csproj` file (e.g., `<PackageReference Include="MudBlazor" Version="9.0.0" />`).
 
 ### Option A — dotnet run (development)
 
-Copy [`mcp.local.json`](./mcp.local.json) into your `.cursor/mcp.json` or `claude_desktop_config.json`. The path inside already points to this repository:
+Add this to your project's `.mcp.json` (or `.cursor/mcp.json`, `claude_desktop_config.json`):
 
 ```json
 {
@@ -154,17 +155,20 @@ Copy [`mcp.local.json`](./mcp.local.json) into your `.cursor/mcp.json` or `claud
       "args": [
         "run",
         "--project",
-        "C:\\Users\\current-user\\source\\repos\\MudMCP\\src\\MudBlazor.Mcp\\MudBlazor.Mcp.csproj",
+        "<path-to-MudMCP>/src/MudBlazor.Mcp/MudBlazor.Mcp.csproj",
         "--",
-        "--stdio"
-      ],
-      "env": {}
+        "--stdio",
+        "--version",
+        "9.0.0"
+      ]
     }
   }
 }
 ```
 
-> The first run takes longer because it clones the MudBlazor repository (~500 MB) and builds the index.
+Replace `<path-to-MudMCP>` with the absolute path to where you cloned this repository, and `9.0.0` with your project's MudBlazor version.
+
+> The first run per version takes longer because it clones the MudBlazor repository and builds the index. Subsequent runs load from a cached `index.json` and start instantly.
 
 ### Option B — Self-contained executable (recommended for daily use)
 
@@ -176,26 +180,88 @@ dotnet publish src/MudBlazor.Mcp/MudBlazor.Mcp.csproj `
   -p:PublishSingleFile=true -o publish/win-x64
 ```
 
-Then use [`mcp.executable.json`](./mcp.executable.json) as your MCP configuration:
+Then use this as your MCP configuration:
 
 ```json
 {
   "mcpServers": {
     "mudblazor": {
-      "command": "C:\\Users\\current-user\\source\\repos\\MudMCP\\publish\\win-x64\\MudBlazor.Mcp.exe",
-      "args": ["--stdio"],
-      "env": {}
+      "command": "<path-to-MudMCP>/publish/win-x64/MudBlazor.Mcp.exe",
+      "args": ["--stdio", "--version", "9.0.0"]
     }
   }
 }
 ```
 
+Replace `<path-to-MudMCP>` with the absolute path to where you cloned this repository, and `9.0.0` with your project's MudBlazor version.
+
+### Option C — Docker (HTTP mode, persistent cache)
+
+Run the server in a container with built-in health checks and a named volume that persists the cloned MudBlazor repository across restarts.
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose plugin)
+
+```bash
+# Build the image and start the container
+docker compose up --build -d
+
+# Follow startup logs (first run clones ~500 MB — takes a few minutes)
+docker compose logs -f
+
+# Check health
+curl http://localhost:5180/health
+```
+
+The MCP endpoint is available at `http://localhost:5180/mcp` — no changes needed to an existing `mcp.json` that already points to `:5180`.
+
+**Volume:** All cached data is stored under a named Docker volume (`mudblazor-data`) mounted at `/app/data`. Each MudBlazor version gets its own subdirectory (`/app/data/v{Version}/`) containing the git clone and serialized index (`index.json`). The version manifest (`versions.json`) lives at `/app/data/versions.json`. Because tagged commits are immutable, the server does not run `git fetch` on subsequent starts — it simply reuses the existing clone and loads the pre-built `index.json`.
+
+```bash
+# Stop without removing the volume (cache is preserved)
+docker compose down
+
+# Stop AND delete all cached data (forces a full re-clone and re-index next start)
+docker compose down -v
+```
+
+**Connect your AI assistant** — same config as HTTP mode:
+```json
+{
+  "servers": {
+    "mudblazor": {
+      "type": "http",
+      "url": "http://localhost:5180/mcp"
+    }
+  }
+}
+```
+
+### Version Caching
+
+The server caches up to **3 MudBlazor versions** simultaneously. Each version gets its own git clone and serialized index:
+
+```
+data/
+  versions.json          # tracks cached versions + last-used timestamps
+  v8.15.0/
+    mudblazor-repo/      # git clone at tag v8.15.0
+    index.json           # serialized component index
+  v9.0.0/
+    mudblazor-repo/
+    index.json
+```
+
+When a 4th version is requested, the least recently used version is evicted automatically. This means you can work on multiple projects with different MudBlazor versions — each project gets its own `.mcp.json` with the right `--version`, and they share the cached clones.
+
+---
+
 ### Transport comparison
 
 | Mode | Command | Kestrel | Use case |
 |------|---------|---------|----------|
-| `--stdio` | `dotnet run -- --stdio` or `.exe --stdio` | No | Cursor, Claude Desktop, local clients |
-| HTTP (default) | `dotnet run` | Yes (`:5180`) | VS Code HTTP, MCP Inspector, remote |
+| `--stdio` | `dotnet run -- --stdio --version X.Y.Z` or `.exe --stdio --version X.Y.Z` | No | Cursor, Claude Code, Claude Desktop, local clients |
+| HTTP (default) | `dotnet run -- --version X.Y.Z` | Yes (`:5180`) | VS Code HTTP, MCP Inspector, remote |
+| Docker | `docker compose up` | Yes (`:5180→8080`) | Containerised / persistent cache |
 
 ---
 

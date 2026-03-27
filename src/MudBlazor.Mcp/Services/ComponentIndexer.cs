@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v2.0. See LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MudBlazor.Mcp.Configuration;
@@ -23,6 +24,7 @@ public sealed class ComponentIndexer : IComponentIndexer
     private readonly CategoryMapper _categoryMapper;
     private readonly ILogger<ComponentIndexer> _logger;
     private readonly MudBlazorOptions _options;
+    private readonly VersionContext _versionContext;
 
     private const string RazorCsExtension = ".razor.cs";
     private const string CsExtension = ".cs";
@@ -44,6 +46,7 @@ public sealed class ComponentIndexer : IComponentIndexer
         RazorDocParser razorParser,
         ExampleExtractor exampleExtractor,
         CategoryMapper categoryMapper,
+        VersionContext versionContext,
         IOptions<MudBlazorOptions> options,
         ILogger<ComponentIndexer> logger)
     {
@@ -53,6 +56,7 @@ public sealed class ComponentIndexer : IComponentIndexer
         _razorParser = razorParser;
         _exampleExtractor = exampleExtractor;
         _categoryMapper = categoryMapper;
+        _versionContext = versionContext;
         _logger = logger;
         _options = options.Value;
     }
@@ -63,10 +67,34 @@ public sealed class ComponentIndexer : IComponentIndexer
         await _indexLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            _logger.LogInformation("Starting index build...");
+            // Try loading from serialized cache first
+            if (await TryLoadCachedIndexAsync(cancellationToken).ConfigureAwait(false))
+            {
+                _logger.LogInformation("Loaded cached index for v{Version} with {Count} components",
+                    _versionContext.Version, _components.Count);
+
+                // Ensure the CategoryMapper is initialized so category queries work
+                // even when the component data was restored from the on-disk cache.
+                await _gitService.EnsureRepositoryAsync(cancellationToken).ConfigureAwait(false);
+                if (_gitService.IsAvailable && _gitService.RepositoryPath is not null)
+                {
+                    await _categoryMapper.InitializeAsync(_gitService.RepositoryPath, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                _isIndexed = true;
+                _lastIndexed = DateTimeOffset.UtcNow;
+                return;
+            }
+
+            _logger.LogInformation("Starting index build for v{Version}...", _versionContext.Version);
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
-            // Ensure we have the repository
+            // Clear any stale in-memory state before performing a full rebuild so that
+            // removed components/API refs from a previous run don't leak into the new index.
+            _components.Clear();
+            _apiReferences.Clear();
+
             await _gitService.EnsureRepositoryAsync(cancellationToken).ConfigureAwait(false);
 
             if (!_gitService.IsAvailable)
@@ -76,20 +104,16 @@ public sealed class ComponentIndexer : IComponentIndexer
 
             var repoPath = _gitService.RepositoryPath!;
 
-            // Initialize category mapper
             await _categoryMapper.InitializeAsync(repoPath, cancellationToken).ConfigureAwait(false);
-
-            // Index components
             await IndexComponentsAsync(repoPath, cancellationToken).ConfigureAwait(false);
-
-            // Index documentation
             await IndexDocumentationAsync(repoPath, cancellationToken).ConfigureAwait(false);
-
-            // Index examples
             await IndexExamplesAsync(repoPath, cancellationToken).ConfigureAwait(false);
 
             _isIndexed = true;
             _lastIndexed = DateTimeOffset.UtcNow;
+
+            // Serialize index to disk for future fast loads
+            await SaveCachedIndexAsync(cancellationToken).ConfigureAwait(false);
 
             sw.Stop();
             _logger.LogInformation("Index build completed in {ElapsedMs}ms. Indexed {Count} components",
@@ -100,6 +124,112 @@ public sealed class ComponentIndexer : IComponentIndexer
             _indexLock.Release();
         }
     }
+
+    /// <summary>
+    /// Schema version for the on-disk cache format. Increment this value whenever the
+    /// <see cref="CachedIndex"/> record structure changes or the serialization format
+    /// is updated in a backward-incompatible way, so stale caches are automatically rebuilt.
+    /// </summary>
+    private const int CacheSchemaVersion = 2;
+
+    private async Task<bool> TryLoadCachedIndexAsync(CancellationToken cancellationToken)
+    {
+        var indexPath = _versionContext.IndexPath;
+        if (!File.Exists(indexPath)) return false;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(indexPath, cancellationToken).ConfigureAwait(false);
+            var cached = JsonSerializer.Deserialize<CachedIndex>(json);
+            if (cached is null) return false;
+
+            // Invalidate if schema version or parsing options don't match the current configuration.
+            if (cached.SchemaVersion != CacheSchemaVersion
+                || cached.IncludeInternalComponents != _options.Parsing.IncludeInternalComponents
+                || cached.IncludeDeprecatedComponents != _options.Parsing.IncludeDeprecatedComponents
+                || cached.MaxExamplesPerComponent != _options.Parsing.MaxExamplesPerComponent)
+            {
+                _logger.LogInformation("Cached index at {Path} is stale (schema or options mismatch), will rebuild", indexPath);
+                TryDeleteCacheFile(indexPath);
+                return false;
+            }
+
+            _components.Clear();
+            foreach (var component in cached.Components)
+                _components[component.Name] = component;
+
+            _apiReferences.Clear();
+            foreach (var apiRef in cached.ApiReferences)
+                _apiReferences[apiRef.TypeName] = apiRef;
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load cached index from {Path}, will rebuild", indexPath);
+            TryDeleteCacheFile(indexPath);
+            return false;
+        }
+    }
+
+    private async Task SaveCachedIndexAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var cached = new CachedIndex(
+                CacheSchemaVersion,
+                _options.Parsing.IncludeInternalComponents,
+                _options.Parsing.IncludeDeprecatedComponents,
+                _options.Parsing.MaxExamplesPerComponent,
+                _components.Values.ToList(),
+                _apiReferences.Values.ToList());
+
+            var dir = Path.GetDirectoryName(_versionContext.IndexPath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+            var json = JsonSerializer.Serialize(
+                cached,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                });
+            await File.WriteAllTextAsync(_versionContext.IndexPath, json, cancellationToken).ConfigureAwait(false);
+
+            _logger.LogInformation("Saved index cache to {Path}", _versionContext.IndexPath);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save index cache — server will work but next startup will re-index");
+        }
+    }
+
+    private void TryDeleteCacheFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete stale cache file {Path}", path);
+        }
+    }
+
+    private sealed record CachedIndex(
+        int SchemaVersion,
+        bool IncludeInternalComponents,
+        bool IncludeDeprecatedComponents,
+        int MaxExamplesPerComponent,
+        List<ComponentInfo> Components,
+        List<ApiReference> ApiReferences);
 
     private async Task IndexComponentsAsync(string repoPath, CancellationToken cancellationToken)
     {
@@ -170,7 +300,7 @@ public sealed class ComponentIndexer : IComponentIndexer
                 Examples: [],
                 RelatedComponents: [],
                 DocumentationUrl: $"https://mudblazor.com/components/{dirName.ToLowerInvariant()}",
-                SourceUrl: $"https://github.com/MudBlazor/MudBlazor/tree/dev/src/MudBlazor/Components/{dirName}"
+                SourceUrl: $"{_options.Repository.Url.TrimEnd('/').Replace(".git", string.Empty)}/tree/{_versionContext.Tag}/src/MudBlazor/Components/{dirName}"
             );
 
             _components[componentName] = componentInfo;

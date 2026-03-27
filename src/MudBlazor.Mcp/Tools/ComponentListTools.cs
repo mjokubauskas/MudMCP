@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Services;
 
 namespace MudBlazor.Mcp.Tools;
@@ -26,10 +27,11 @@ public sealed class ComponentListTools
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Formatted list of components.</returns>
     [McpServerTool(Name = "list_components")]
-    [Description("Lists all available MudBlazor components. Optionally filter by category and include additional details.")]
+    [Description("Lists all available MudBlazor components. Optionally filter by category and include additional details. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> ListComponentsAsync(
         IComponentIndexer indexer,
         ILogger<ComponentListTools> logger,
+        VersionContext versionContext,
         [Description("Optional category to filter by (e.g., 'Buttons', 'Form Inputs', 'Navigation')")] 
         string? category = null,
         [Description("Include parameter counts and brief descriptions (default: true)")]
@@ -65,7 +67,7 @@ public sealed class ComponentListTools
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# MudBlazor Components ({components.Count} total)");
+        sb.AppendLine($"# MudBlazor Components v{versionContext.Version} ({components.Count} total)");
         sb.AppendLine();
 
         if (category is not null)
@@ -109,10 +111,11 @@ public sealed class ComponentListTools
     /// Lists all component categories with their descriptions and component counts.
     /// </summary>
     [McpServerTool(Name = "list_categories")]
-    [Description("Lists all MudBlazor component categories with descriptions and component counts.")]
+    [Description("Lists all MudBlazor component categories with descriptions and component counts. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> ListCategoriesAsync(
         IComponentIndexer indexer,
         ILogger<ComponentListTools> logger,
+        VersionContext versionContext,
         CancellationToken cancellationToken = default)
     {
         logger.LogDebug("Listing all component categories");
@@ -130,7 +133,7 @@ public sealed class ComponentListTools
             categories.Count, allComponents.Count);
 
         var sb = new StringBuilder();
-        sb.AppendLine("# MudBlazor Component Categories");
+        sb.AppendLine($"# MudBlazor Component Categories (v{versionContext.Version})");
         sb.AppendLine();
 
         foreach (var category in categories)

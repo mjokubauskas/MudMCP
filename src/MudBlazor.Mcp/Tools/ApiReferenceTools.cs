@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Services;
 
 namespace MudBlazor.Mcp.Tools;
@@ -21,10 +22,11 @@ public sealed class ApiReferenceTools
     /// Gets the API reference for a MudBlazor type.
     /// </summary>
     [McpServerTool(Name = "get_api_reference")]
-    [Description("Gets the full API reference for a MudBlazor component or type, including all properties, methods, and events.")]
+    [Description("Gets the full API reference for a MudBlazor component or type, including all properties, methods, and events. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> GetApiReferenceAsync(
         IComponentIndexer indexer,
         ILogger<ApiReferenceTools> logger,
+        VersionContext versionContext,
         [Description("The type name (e.g., 'MudButton', 'Color', 'Size')")]
         string typeName,
         [Description("Filter to specific member type: 'all', 'properties', 'methods', 'events' (default: 'all')")]
@@ -52,7 +54,7 @@ public sealed class ApiReferenceTools
             typeName, apiRef.Members?.Count ?? 0);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {apiRef.TypeName} API Reference");
+        sb.AppendLine($"# {apiRef.TypeName} API Reference (v{versionContext.Version})");
         sb.AppendLine();
         sb.AppendLine($"**Namespace:** `{apiRef.Namespace}`");
         
@@ -158,9 +160,10 @@ public sealed class ApiReferenceTools
     /// Gets enum values for a MudBlazor enum type.
     /// </summary>
     [McpServerTool(Name = "get_enum_values")]
-    [Description("Gets all values for a MudBlazor enum type (e.g., Color, Size, Variant).")]
+    [Description("Gets all values for a MudBlazor enum type (e.g., Color, Size, Variant). Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> GetEnumValuesAsync(
         ILogger<ApiReferenceTools> logger,
+        VersionContext versionContext,
         [Description("The enum name (e.g., 'Color', 'Size', 'Variant', 'Align')")]
         string enumName,
         CancellationToken cancellationToken = default)
@@ -181,7 +184,7 @@ public sealed class ApiReferenceTools
         logger.LogDebug("Found {Count} values for enum {EnumName}", enumValues.Count, enumName);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {enumName} Enum Values");
+        sb.AppendLine($"# {enumName} Enum Values (v{versionContext.Version})");
         sb.AppendLine();
         sb.AppendLine("| Value | Description |");
         sb.AppendLine("|-------|-------------|");

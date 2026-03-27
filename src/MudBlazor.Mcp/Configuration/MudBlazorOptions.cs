@@ -40,14 +40,14 @@ public sealed class RepositoryOptions
     public string Url { get; set; } = "https://github.com/MudBlazor/MudBlazor.git";
 
     /// <summary>
-    /// The branch to clone/pull.
+    /// Base directory for all per-version cache data (repos, indexes, versions.json).
     /// </summary>
-    public string Branch { get; set; } = "main";
+    public string DataPath { get; set; } = "./data";
 
     /// <summary>
-    /// Local path where the repository is cloned.
+    /// Maximum number of cached repository versions to keep on disk.
     /// </summary>
-    public string LocalPath { get; set; } = "./data/mudblazor-repo";
+    public int MaxCachedVersions { get; set; } = 3;
 }
 
 /// <summary>

@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Services;
 
 namespace MudBlazor.Mcp.Tools;
@@ -22,10 +23,11 @@ public sealed class ComponentSearchTools
     /// Searches for MudBlazor components by query.
     /// </summary>
     [McpServerTool(Name = "search_components")]
-    [Description("Searches MudBlazor components by name, description, or parameters. Returns components matching the query.")]
+    [Description("Searches MudBlazor components by name, description, or parameters. Returns components matching the query. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> SearchComponentsAsync(
         IComponentIndexer indexer,
         ILogger<ComponentSearchTools> logger,
+        VersionContext versionContext,
         [Description("The search query (e.g., 'button', 'form input', 'date picker')")]
         string query,
         [Description("Fields to search in: 'name', 'description', 'parameters', 'examples', or 'all' (default)")]
@@ -57,7 +59,7 @@ public sealed class ComponentSearchTools
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# Search Results for '{query}'");
+        sb.AppendLine($"# Search Results for '{query}' (v{versionContext.Version})");
         sb.AppendLine();
         sb.AppendLine($"Found {results.Count} component(s):");
         sb.AppendLine();
@@ -104,10 +106,11 @@ public sealed class ComponentSearchTools
     /// Gets all components in a specific category.
     /// </summary>
     [McpServerTool(Name = "get_components_by_category")]
-    [Description("Gets all MudBlazor components in a specific category.")]
+    [Description("Gets all MudBlazor components in a specific category. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> GetComponentsByCategoryAsync(
         IComponentIndexer indexer,
         ILogger<ComponentSearchTools> logger,
+        VersionContext versionContext,
         [Description("The category name (e.g., 'Buttons', 'Form Inputs & Controls', 'Navigation', 'Layout', 'Data Display', 'Feedback', 'Charts')")]
         string category,
         CancellationToken cancellationToken = default)
@@ -129,7 +132,7 @@ public sealed class ComponentSearchTools
         logger.LogDebug("Found {Count} components in category {Category}", components.Count, category);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {category} Components");
+        sb.AppendLine($"# {category} Components (v{versionContext.Version})");
         sb.AppendLine();
         sb.AppendLine($"Found {components.Count} component(s):");
         sb.AppendLine();
@@ -175,10 +178,11 @@ public sealed class ComponentSearchTools
     /// Gets components related to a specific component.
     /// </summary>
     [McpServerTool(Name = "get_related_components")]
-    [Description("Gets MudBlazor components related to a specific component through inheritance, category, or common usage.")]
+    [Description("Gets MudBlazor components related to a specific component through inheritance, category, or common usage. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static async Task<string> GetRelatedComponentsAsync(
         IComponentIndexer indexer,
         ILogger<ComponentSearchTools> logger,
+        VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         [Description("Type of relationship: 'all', 'parent', 'child', 'sibling', or 'commonly_used_with' (default: 'all')")]
@@ -208,7 +212,7 @@ public sealed class ComponentSearchTools
         logger.LogDebug("Found {Count} related components for {ComponentName}", related.Count, componentName);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# Components Related to {component.Name}");
+        sb.AppendLine($"# Components Related to {component.Name} (v{versionContext.Version})");
         sb.AppendLine();
 
         if (related.Count == 0)

@@ -1,0 +1,42 @@
+# Copyright (c) 2026 Mud MCP Contributors
+# Licensed under the GNU General Public License v2.0.
+
+services:
+  mudblazor-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # For production use, replace the build section above with the image line below
+    # image: mudblazor-mcp:latest
+    container_name: mudblazor-mcp
+    ports:
+      # Host port 5180 matches the default local development URL so existing
+      # mcp.json / claude_desktop_config.json files need no changes.
+      - "5180:8080"
+    volumes:
+      # Mount the whole data directory so per-version clones, index files, and
+      # versions.json all persist across restarts.
+      - mudblazor-data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # Add the MudBlazor version as an environment variable so it can be overridden at runtime
+      - MUDBLAZOR_VERSION=9.0.0
+      # Other supported overrides:
+      # - MudBlazor__Repository__Url=https://github.com/MudBlazor/MudBlazor.git
+      # - MudBlazor__Repository__DataPath=/app/data
+      # - MudBlazor__Repository__MaxCachedVersions=5
+    healthcheck:
+      # /health/live returns 200 immediately; /health/ready becomes healthy only
+      # after the component index has been built (may take a few minutes on
+      # first run while the MudBlazor repository is cloned).
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Allow up to 10 minutes for the initial clone + index build.
+      start_period: 600s
+    restart: unless-stopped
+
+volumes:
+  mudblazor-data:
+    driver: local

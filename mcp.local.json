@@ -2,14 +2,16 @@
   "$schema": "https://json.schemastore.org/mcp.json",
   "mcpServers": {
     "mudblazor": {
-      "description": "MudBlazor MCP Server (Local/Stdio) - Executa via .NET SDK",
+      "description": "MudBlazor MCP Server (Local/Stdio) - Run via .NET SDK",
       "command": "dotnet",
       "args": [
         "run",
         "--project",
-        "C:\\Users\\current-user\\source\\repos\\MudMCP\\src\\MudBlazor.Mcp\\MudBlazor.Mcp.csproj",
+        "<REPO_ROOT>\\src\\MudBlazor.Mcp\\MudBlazor.Mcp.csproj",
         "--",
-        "--stdio"
+        "--stdio",
+        "--version",
+        "9.0.0"
       ],
       "env": {}
     }
