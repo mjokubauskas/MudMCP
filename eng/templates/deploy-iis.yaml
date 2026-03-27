@@ -25,6 +25,10 @@ parameters:
     type: number
     displayName: 'HTTP port for the website'
     default: 5180
+  - name: mudBlazorVersion
+    type: string
+    displayName: 'MudBlazor version to serve documentation for'
+    default: '9.0.0'
 
 steps:
   # Checkout source to get deployment scripts
@@ -75,7 +79,7 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Update-EnvironmentSettings.ps1'
-      arguments: '-PhysicalPath "${{ parameters.physicalPath }}" -Environment "${{ parameters.environment }}"'
+      arguments: '-PhysicalPath "${{ parameters.physicalPath }}" -Environment "${{ parameters.environment }}" -MudBlazorVersion "${{ parameters.mudBlazorVersion }}"'
 
   - task: PowerShell@2
     displayName: 'Set folder permissions'

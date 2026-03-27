@@ -32,6 +32,9 @@ else
     }
 }
 
+// Fallback to environment variable (used by IIS hosting via web.config environmentVariables)
+mudBlazorVersion ??= Environment.GetEnvironmentVariable("MUDBLAZOR_VERSION");
+
 if (string.IsNullOrEmpty(mudBlazorVersion))
 {
     Console.Error.WriteLine("Error: --version argument is required.");

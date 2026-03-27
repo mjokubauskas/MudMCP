@@ -26,7 +26,10 @@ param(
     
     [Parameter(Mandatory=$true)]
     [ValidateSet('Development', 'Staging', 'Production')]
-    [string]$Environment
+    [string]$Environment,
+
+    [Parameter(Mandatory=$false)]
+    [string]$MudBlazorVersion
 )
 
 Set-StrictMode -Version Latest
@@ -66,6 +69,20 @@ if (Test-Path $webConfigPath) {
             $envVars.AppendChild($newEnvVar) | Out-Null
         }
         
+        # Update or add MUDBLAZOR_VERSION if specified
+        if ($MudBlazorVersion) {
+            $mudVar = $envVars.SelectSingleNode("environmentVariable[@name='MUDBLAZOR_VERSION']")
+            if ($mudVar) {
+                $mudVar.SetAttribute("value", $MudBlazorVersion)
+            } else {
+                $newMudVar = $webConfig.CreateElement("environmentVariable")
+                $newMudVar.SetAttribute("name", "MUDBLAZOR_VERSION")
+                $newMudVar.SetAttribute("value", $MudBlazorVersion)
+                $envVars.AppendChild($newMudVar) | Out-Null
+            }
+            Write-Host "Set MUDBLAZOR_VERSION to $MudBlazorVersion"
+        }
+
         $webConfig.Save($webConfigPath)
         Write-Host "web.config updated successfully."
     } else {
