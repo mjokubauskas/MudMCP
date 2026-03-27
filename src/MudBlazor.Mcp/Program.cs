@@ -32,8 +32,29 @@ else
     }
 }
 
+// Normalize CLI argument: trim and treat empty/whitespace as missing
+if (!string.IsNullOrWhiteSpace(mudBlazorVersion))
+{
+    mudBlazorVersion = mudBlazorVersion.Trim();
+}
+else
+{
+    mudBlazorVersion = null;
+}
+
 // Fallback to environment variable (used by IIS hosting via web.config environmentVariables)
-mudBlazorVersion ??= Environment.GetEnvironmentVariable("MUDBLAZOR_VERSION");
+if (string.IsNullOrWhiteSpace(mudBlazorVersion))
+{
+    var envVersion = Environment.GetEnvironmentVariable("MUDBLAZOR_VERSION");
+    if (!string.IsNullOrWhiteSpace(envVersion))
+    {
+        mudBlazorVersion = envVersion.Trim();
+    }
+    else
+    {
+        mudBlazorVersion = envVersion; // null or empty, handled by validation below
+    }
+}
 
 if (string.IsNullOrEmpty(mudBlazorVersion))
 {
