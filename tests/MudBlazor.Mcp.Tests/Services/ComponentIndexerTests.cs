@@ -437,4 +437,40 @@ public class ComponentIndexerTests : IDisposable
         // The corrupted file should have been deleted and replaced with a valid one
         Assert.True(File.Exists(context.IndexPath));
     }
+
+    [Fact]
+    public async Task BuildIndexAsync_SourceUrl_UsesVersionContextTag()
+    {
+        // Arrange — the SourceUrl should reference the version tag, not the hard-coded "dev" branch
+        var repoPath = CreateTempRepoDir();
+        var buttonDir = Path.Combine(repoPath, "src", "MudBlazor", "Components", "Button");
+        Directory.CreateDirectory(buttonDir);
+
+        await File.WriteAllTextAsync(Path.Combine(buttonDir, "MudButton.razor.cs"), """
+            namespace MudBlazor;
+            public partial class MudButton : MudBaseButton
+            {
+                [Parameter] public string? Label { get; set; }
+            }
+            """);
+
+        var gitService = new Mock<IGitRepositoryService>();
+        gitService.Setup(g => g.IsAvailable).Returns(true);
+        gitService.Setup(g => g.RepositoryPath).Returns(repoPath);
+        gitService.Setup(g => g.EnsureRepositoryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var (indexer, context) = CreateIndexerWithContext(gitService: gitService.Object);
+
+        // Act
+        await indexer.BuildIndexAsync();
+
+        // Assert — SourceUrl must contain the version tag, not "tree/dev"
+        var component = await indexer.GetComponentAsync("MudButton");
+        Assert.NotNull(component);
+        Assert.NotNull(component.SourceUrl);
+        Assert.Contains($"/tree/{context.Tag}/", component.SourceUrl);
+        Assert.DoesNotContain("/tree/dev/", component.SourceUrl);
+        Assert.EndsWith("/Components/Button", component.SourceUrl);
+    }
 }

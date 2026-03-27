@@ -130,7 +130,7 @@ public sealed class ComponentIndexer : IComponentIndexer
     /// <see cref="CachedIndex"/> record structure changes or the serialization format
     /// is updated in a backward-incompatible way, so stale caches are automatically rebuilt.
     /// </summary>
-    private const int CacheSchemaVersion = 1;
+    private const int CacheSchemaVersion = 2;
 
     private async Task<bool> TryLoadCachedIndexAsync(CancellationToken cancellationToken)
     {
@@ -300,7 +300,7 @@ public sealed class ComponentIndexer : IComponentIndexer
                 Examples: [],
                 RelatedComponents: [],
                 DocumentationUrl: $"https://mudblazor.com/components/{dirName.ToLowerInvariant()}",
-                SourceUrl: $"https://github.com/MudBlazor/MudBlazor/tree/dev/src/MudBlazor/Components/{dirName}"
+                SourceUrl: $"{_options.Repository.Url.TrimEnd('/').Replace(".git", string.Empty)}/tree/{_versionContext.Tag}/src/MudBlazor/Components/{dirName}"
             );
 
             _components[componentName] = componentInfo;
