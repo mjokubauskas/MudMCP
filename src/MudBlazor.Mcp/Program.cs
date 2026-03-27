@@ -10,9 +10,25 @@ using MudBlazor.Mcp.Services.Parsing;
 // Check for stdio transport mode
 var useStdio = args.Contains("--stdio");
 
-// Parse required --version argument
+// Parse required --version argument (supports both "--version X.Y.Z" and "--version=X.Y.Z")
+string? mudBlazorVersion = null;
 var versionIndex = Array.IndexOf(args, "--version");
-if (versionIndex < 0 || versionIndex + 1 >= args.Length)
+if (versionIndex >= 0 && versionIndex + 1 < args.Length)
+{
+    // Space-separated form: --version X.Y.Z
+    mudBlazorVersion = args[versionIndex + 1];
+}
+else
+{
+    // Equals form: --version=X.Y.Z
+    var equalsArg = args.FirstOrDefault(a => a.StartsWith("--version=", StringComparison.OrdinalIgnoreCase));
+    if (equalsArg is not null)
+    {
+        mudBlazorVersion = equalsArg["--version=".Length..];
+    }
+}
+
+if (string.IsNullOrEmpty(mudBlazorVersion))
 {
     Console.Error.WriteLine("Error: --version argument is required.");
     Console.Error.WriteLine();
@@ -36,7 +52,6 @@ if (versionIndex < 0 || versionIndex + 1 >= args.Length)
     Console.Error.WriteLine("Replace 9.0.0 with your project's MudBlazor version.");
     return 1;
 }
-var mudBlazorVersion = args[versionIndex + 1];
 
 if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$"))
 {
@@ -44,11 +59,14 @@ if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\
     return 1;
 }
 
+// Strip custom arguments so they don't leak into the .NET host builder configuration.
+var filteredArgs = StripCustomArgs(args);
+
 if (useStdio)
 {
     // Stdio mode: plain console host — no Kestrel, no health endpoints.
     // All logs must go to stderr so stdout remains clean for MCP protocol frames.
-    var builder = Host.CreateApplicationBuilder(args);
+    var builder = Host.CreateApplicationBuilder(filteredArgs);
 
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole(options =>
@@ -76,7 +94,7 @@ if (useStdio)
 else
 {
     // HTTP mode: full ASP.NET Core web host with health checks and streamable HTTP transport.
-    var builder = WebApplication.CreateBuilder(args);
+    var builder = WebApplication.CreateBuilder(filteredArgs);
 
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole(options =>
@@ -125,6 +143,29 @@ else
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+static string[] StripCustomArgs(string[] args)
+{
+    var filtered = new List<string>(args.Length);
+    for (var i = 0; i < args.Length; i++)
+    {
+        if (args[i] == "--stdio")
+            continue;
+
+        if (args[i] == "--version" && i + 1 < args.Length)
+        {
+            i++; // skip the value token as well
+            continue;
+        }
+
+        if (args[i].StartsWith("--version=", StringComparison.OrdinalIgnoreCase))
+            continue;
+
+        filtered.Add(args[i]);
+    }
+
+    return [.. filtered];
+}
 
 static void RegisterCoreServices(IServiceCollection services, IConfiguration configuration, string version)
 {

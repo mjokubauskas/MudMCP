@@ -126,6 +126,74 @@ public class VersionCacheManagerTests : IDisposable
         Assert.True(manager.IsVersionCached("9.0.0"));
     }
 
+    [Fact]
+    public void Constructor_RebuildsManifest_WhenCorruptedWithOrphanedDirectories()
+    {
+        // Create orphaned version directories on disk
+        Directory.CreateDirectory(Path.Combine(_testDataPath, "v1.0.0"));
+        Directory.CreateDirectory(Path.Combine(_testDataPath, "v2.0.0"));
+
+        // Corrupt the manifest so LoadManifest() returns empty
+        File.WriteAllText(Path.Combine(_testDataPath, "versions.json"), "{{broken json");
+
+        // Construct a new manager — it should re-register the orphaned directories
+        var manager = new VersionCacheManager(_testDataPath, maxVersions: 3, timeProvider: _timeProvider);
+
+        Assert.True(manager.IsVersionCached("1.0.0"));
+        Assert.True(manager.IsVersionCached("2.0.0"));
+
+        // Re-registered orphans should have MinValue LastUsed (first to be evicted)
+        Assert.Equal(DateTimeOffset.MinValue, manager.GetLastUsed("1.0.0"));
+        Assert.Equal(DateTimeOffset.MinValue, manager.GetLastUsed("2.0.0"));
+
+        // Directories should still exist on disk
+        Assert.True(Directory.Exists(Path.Combine(_testDataPath, "v1.0.0")));
+        Assert.True(Directory.Exists(Path.Combine(_testDataPath, "v2.0.0")));
+    }
+
+    [Fact]
+    public void Constructor_PrunesExcessOrphans_WhenOverCapacity()
+    {
+        // Create 5 orphaned version directories but maxVersions is 3
+        for (var i = 1; i <= 5; i++)
+            Directory.CreateDirectory(Path.Combine(_testDataPath, $"v{i}.0.0"));
+
+        // Corrupt the manifest
+        File.WriteAllText(Path.Combine(_testDataPath, "versions.json"), "{{broken json");
+
+        var manager = new VersionCacheManager(_testDataPath, maxVersions: 3, timeProvider: _timeProvider);
+
+        // Exactly 3 should be tracked in the manifest
+        var trackedCount = 0;
+        for (var i = 1; i <= 5; i++)
+        {
+            if (manager.IsVersionCached($"{i}.0.0"))
+                trackedCount++;
+        }
+        Assert.Equal(3, trackedCount);
+
+        // Excess directories (not tracked) should have been deleted from disk
+        var remainingDirs = Directory.GetDirectories(_testDataPath, "v*").Length;
+        Assert.Equal(3, remainingDirs);
+    }
+
+    [Fact]
+    public void Constructor_NoOrphans_WhenDataDirectoryIsEmpty()
+    {
+        // Empty data dir, no manifest — should produce a clean empty manager
+        var emptyPath = Path.Combine(Path.GetTempPath(), $"mudmcp-test-empty-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(emptyPath);
+        try
+        {
+            var manager = new VersionCacheManager(emptyPath, maxVersions: 3, timeProvider: _timeProvider);
+            Assert.False(manager.IsVersionCached("1.0.0"));
+        }
+        finally
+        {
+            Directory.Delete(emptyPath, true);
+        }
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDataPath))

@@ -27,6 +27,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
         _logger = logger ?? NullLogger<VersionCacheManager>.Instance;
         _manifestPath = Path.Combine(dataPath, "versions.json");
         _manifest = LoadManifest();
+        ReconcileOrphanedDirectories();
     }
 
     public bool IsVersionCached(string version)
@@ -103,6 +104,97 @@ public sealed class VersionCacheManager : IVersionCacheManager
         }
 
         return new EvictionResult(EvictionStatus.Evicted, oldest.Version);
+    }
+
+    /// <summary>
+    /// Scans the data directory for version directories that exist on disk but are
+    /// not tracked in the manifest (orphans). This happens when the manifest is
+    /// corrupted or deleted while version directories remain.
+    /// Orphans within capacity are re-registered with <see cref="DateTimeOffset.MinValue"/>
+    /// so they are evicted first via normal LRU. Excess orphans are deleted immediately.
+    /// </summary>
+    private void ReconcileOrphanedDirectories()
+    {
+        if (!Directory.Exists(_dataPath))
+            return;
+
+        var trackedVersions = new HashSet<string>(_manifest.Versions.Select(v => v.Version), StringComparer.OrdinalIgnoreCase);
+
+        List<string> orphanVersions;
+        try
+        {
+            orphanVersions = Directory.GetDirectories(_dataPath, "v*")
+                .Select(dir => Path.GetFileName(dir))
+                .Where(name => name.Length > 1 && name.StartsWith('v'))
+                .Select(name => name[1..]) // strip the 'v' prefix
+                .Where(version => !trackedVersions.Contains(version))
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (IOException ex)
+        {
+            _logger.LogWarning(ex, "IO error scanning for orphaned version directories in {Path}", _dataPath);
+            return;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Permission error scanning for orphaned version directories in {Path}", _dataPath);
+            return;
+        }
+
+        if (orphanVersions.Count == 0)
+            return;
+
+        _logger.LogWarning(
+            "Found {Count} orphaned version director(ies) in {Path} not tracked by the manifest: {Versions}",
+            orphanVersions.Count, _dataPath, string.Join(", ", orphanVersions));
+
+        foreach (var version in orphanVersions)
+        {
+            if (_manifest.Versions.Count < _maxVersions)
+            {
+                // Re-register with MinValue so it is the first candidate for LRU eviction.
+                _manifest.Versions.Add(new VersionEntry(version, $"v{version}", DateTimeOffset.MinValue));
+                _logger.LogWarning(
+                    "Re-registered orphaned version {Version} into the manifest (LastUsed = MinValue)",
+                    version);
+            }
+            else
+            {
+                // Over capacity — delete the orphan directory.
+                var orphanDir = Path.Combine(_dataPath, $"v{version}");
+                try
+                {
+                    foreach (var file in new DirectoryInfo(orphanDir).GetFiles("*", SearchOption.AllDirectories))
+                        file.Attributes = FileAttributes.Normal;
+                    Directory.Delete(orphanDir, true);
+                    _logger.LogWarning(
+                        "Deleted orphaned version directory {Path} (manifest at capacity {Max})",
+                        orphanDir, _maxVersions);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // Already gone — no action needed.
+                }
+                catch (IOException ex)
+                {
+                    _logger.LogWarning(ex,
+                        "IO error deleting orphaned version directory {Path}; will retry on next startup",
+                        orphanDir);
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Permission error deleting orphaned version directory {Path}; will retry on next startup",
+                        orphanDir);
+                }
+            }
+        }
+
+        if (!Save())
+            _logger.LogWarning(
+                "Failed to persist manifest after orphan reconciliation; in-memory state is correct but {ManifestPath} may be stale",
+                _manifestPath);
     }
 
     private VersionManifest LoadManifest()
