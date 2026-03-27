@@ -229,7 +229,17 @@ public sealed class VersionCacheManager : IVersionCacheManager
         {
             Directory.CreateDirectory(_dataPath);
             var json = JsonSerializer.Serialize(_manifest, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_manifestPath, json);
+            var tempPath = _manifestPath + ".tmp";
+            File.WriteAllText(tempPath, json);
+
+            if (File.Exists(_manifestPath))
+            {
+                File.Replace(tempPath, _manifestPath, backupFileName: null, ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(tempPath, _manifestPath, overwrite: true);
+            }
             return true;
         }
         catch (IOException ex)
