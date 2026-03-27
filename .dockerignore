@@ -9,6 +9,8 @@
 
 # Cloned MudBlazor repository – can be ~500 MB on a developer machine.
 # The container clones it at runtime into the /app/data volume.
+# Default runtime cache location (RepositoryOptions.DataPath = "./data/").
+data/
 src/MudBlazor.Mcp/data/
 
 # Projects not required to build MudBlazor.Mcp
