@@ -7,6 +7,8 @@
 
 .DESCRIPTION
     Modifies the web.config file to set the ASPNETCORE_ENVIRONMENT variable.
+    Optionally sets the MUDBLAZOR_VERSION environment variable used by the
+    MCP server to determine which MudBlazor documentation version to serve.
 
 .PARAMETER PhysicalPath
     Physical path where web.config is located.
@@ -14,8 +16,16 @@
 .PARAMETER Environment
     ASP.NET Core environment name (e.g., Development, Staging, Production).
 
+.PARAMETER MudBlazorVersion
+    Optional MudBlazor version (e.g., 9.0.0 or 9.0.0-preview.1) to set as the
+    MUDBLAZOR_VERSION environment variable in web.config. Must match the format
+    X.Y.Z or X.Y.Z-prerelease. Whitespace-only values are ignored.
+
 .EXAMPLE
     .\Update-EnvironmentSettings.ps1 -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Environment "Production"
+
+.EXAMPLE
+    .\Update-EnvironmentSettings.ps1 -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Environment "Production" -MudBlazorVersion "9.0.0"
 #>
 
 [CmdletBinding()]
@@ -72,6 +82,10 @@ if (Test-Path $webConfigPath) {
         # Update or add MUDBLAZOR_VERSION if specified and non-whitespace
         if (-not [string]::IsNullOrWhiteSpace($MudBlazorVersion)) {
             $mudBlazorVersionTrimmed = $MudBlazorVersion.Trim()
+            # Validate MudBlazor version format: X.Y.Z or X.Y.Z-prerelease
+            if ($mudBlazorVersionTrimmed -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z\.-]+)?$') {
+                throw "Invalid MudBlazorVersion '$MudBlazorVersion'. Expected format 'X.Y.Z' or 'X.Y.Z-prerelease'."
+            }
             $mudVar = $envVars.SelectSingleNode("environmentVariable[@name='MUDBLAZOR_VERSION']")
             if ($mudVar) {
                 $mudVar.SetAttribute("value", $mudBlazorVersionTrimmed)
