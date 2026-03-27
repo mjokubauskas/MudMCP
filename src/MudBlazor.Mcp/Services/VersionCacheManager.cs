@@ -146,7 +146,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
             return;
 
         _logger.LogWarning(
-            "Found {Count} orphaned version director(ies) in {Path} not tracked by the manifest: {Versions}",
+            "Found {Count} orphaned version directory(ies) in {Path} not tracked by the manifest: {Versions}",
             orphanVersions.Count, _dataPath, string.Join(", ", orphanVersions));
 
         foreach (var version in orphanVersions)
