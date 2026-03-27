@@ -194,6 +194,33 @@ public class VersionCacheManagerTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Constructor_PrunesExcessVersions_WhenMaxCachedVersionsLowered()
+    {
+        // Build a valid manifest with 5 versions (simulating maxVersions=5 in the past)
+        var setup = new VersionCacheManager(_testDataPath, maxVersions: 5, timeProvider: _timeProvider);
+        for (var i = 1; i <= 5; i++)
+        {
+            setup.RegisterVersion($"{i}.0.0");
+            Directory.CreateDirectory(Path.Combine(_testDataPath, $"v{i}.0.0"));
+            _timeProvider.Advance(TimeSpan.FromSeconds(1));
+        }
+
+        // Now create a new manager with a lower limit — should prune the 2 oldest (1.0.0, 2.0.0)
+        var manager = new VersionCacheManager(_testDataPath, maxVersions: 3, timeProvider: _timeProvider);
+
+        Assert.False(manager.IsVersionCached("1.0.0"));
+        Assert.False(manager.IsVersionCached("2.0.0"));
+        Assert.True(manager.IsVersionCached("3.0.0"));
+        Assert.True(manager.IsVersionCached("4.0.0"));
+        Assert.True(manager.IsVersionCached("5.0.0"));
+
+        // Pruned directories should be deleted from disk
+        Assert.False(Directory.Exists(Path.Combine(_testDataPath, "v1.0.0")));
+        Assert.False(Directory.Exists(Path.Combine(_testDataPath, "v2.0.0")));
+        Assert.True(Directory.Exists(Path.Combine(_testDataPath, "v3.0.0")));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDataPath))

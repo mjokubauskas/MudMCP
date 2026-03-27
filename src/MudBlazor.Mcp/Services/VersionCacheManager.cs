@@ -27,6 +27,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
         _logger = logger ?? NullLogger<VersionCacheManager>.Instance;
         _manifestPath = Path.Combine(dataPath, "versions.json");
         _manifest = LoadManifest();
+        PruneExcessVersions();
         ReconcileOrphanedDirectories();
     }
 
@@ -104,6 +105,65 @@ public sealed class VersionCacheManager : IVersionCacheManager
         }
 
         return new EvictionResult(EvictionStatus.Evicted, oldest.Version);
+    }
+
+    /// <summary>
+    /// Removes least-recently-used manifest entries (and their on-disk directories)
+    /// when the persisted manifest contains more versions than <c>_maxVersions</c>.
+    /// This can happen when the configuration is lowered after versions have already
+    /// been cached, or when an old manifest persists across upgrades.
+    /// </summary>
+    private void PruneExcessVersions()
+    {
+        if (_manifest.Versions.Count <= _maxVersions)
+            return;
+
+        var excess = _manifest.Versions.Count - _maxVersions;
+        _logger.LogWarning(
+            "Manifest contains {Count} versions but MaxCachedVersions is {Max}; pruning {Excess} LRU version(s)",
+            _manifest.Versions.Count, _maxVersions, excess);
+
+        var toRemove = _manifest.Versions
+            .OrderBy(v => v.LastUsed)
+            .Take(excess)
+            .ToList();
+
+        foreach (var entry in toRemove)
+        {
+            var versionDir = Path.Combine(_dataPath, $"v{entry.Version}");
+            try
+            {
+                if (Directory.Exists(versionDir))
+                {
+                    foreach (var file in new DirectoryInfo(versionDir).GetFiles("*", SearchOption.AllDirectories))
+                        file.Attributes = FileAttributes.Normal;
+                    Directory.Delete(versionDir, true);
+                }
+                _manifest.Versions.Remove(entry);
+                _logger.LogWarning("Pruned excess cached version {Version} (LRU)", entry.Version);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                _manifest.Versions.Remove(entry);
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning(ex,
+                    "IO error deleting excess version directory {Path}; keeping manifest entry to retry later",
+                    versionDir);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Permission error deleting excess version directory {Path}; keeping manifest entry to retry later",
+                    versionDir);
+            }
+        }
+
+        if (!Save())
+            _logger.LogWarning(
+                "Failed to persist manifest after pruning excess versions; in-memory state is correct but {ManifestPath} may be stale",
+                _manifestPath);
     }
 
     /// <summary>
