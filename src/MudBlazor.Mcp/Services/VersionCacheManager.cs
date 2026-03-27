@@ -31,7 +31,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
     }
 
     public bool IsVersionCached(string version)
-        => _manifest.Versions.Any(v => v.Version == version);
+        => _manifest.Versions.Any(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase));
 
     public void RegisterVersion(string version)
     {
@@ -43,7 +43,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
 
     public void TouchVersion(string version)
     {
-        var entry = _manifest.Versions.FirstOrDefault(v => v.Version == version);
+        var entry = _manifest.Versions.FirstOrDefault(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase));
         if (entry is null) return;
         entry.LastUsed = _timeProvider.GetUtcNow();
         if (!Save())
@@ -51,7 +51,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
     }
 
     public DateTimeOffset? GetLastUsed(string version)
-        => _manifest.Versions.FirstOrDefault(v => v.Version == version)?.LastUsed;
+        => _manifest.Versions.FirstOrDefault(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase))?.LastUsed;
 
     /// <summary>
     /// Evicts the least-recently-used cached version to make room for a new one.
@@ -234,7 +234,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
 
             if (File.Exists(_manifestPath))
             {
-                File.Replace(tempPath, _manifestPath, backupFileName: null, ignoreMetadataErrors: true);
+                File.Replace(tempPath, _manifestPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
             }
             else
             {
