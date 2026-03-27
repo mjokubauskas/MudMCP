@@ -28,6 +28,7 @@ parameters:
   - name: mudBlazorVersion
     type: string
     displayName: 'MudBlazor version to serve documentation for'
+    default: ''
 
 steps:
   # Checkout source to get deployment scripts
