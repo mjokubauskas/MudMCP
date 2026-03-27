@@ -86,10 +86,6 @@ if (Test-Path $webConfigPath) {
             if ($mudBlazorVersionTrimmed -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z\.-]+)?$') {
                 throw "Invalid MudBlazorVersion '$MudBlazorVersion'. Expected format 'X.Y.Z' or 'X.Y.Z-prerelease'."
             }
-            # Validate MudBlazor version format: X.Y.Z or X.Y.Z-prerelease
-            if ($mudBlazorVersionTrimmed -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z\.-]+)?$') {
-                throw "Invalid MudBlazorVersion '$MudBlazorVersion'. Expected format 'X.Y.Z' or 'X.Y.Z-prerelease'."
-            }
             $mudVar = $envVars.SelectSingleNode("environmentVariable[@name='MUDBLAZOR_VERSION']")
             if ($mudVar) {
                 $mudVar.SetAttribute("value", $mudBlazorVersionTrimmed)
