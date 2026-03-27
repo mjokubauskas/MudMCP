@@ -69,18 +69,19 @@ if (Test-Path $webConfigPath) {
             $envVars.AppendChild($newEnvVar) | Out-Null
         }
         
-        # Update or add MUDBLAZOR_VERSION if specified
-        if ($MudBlazorVersion) {
+        # Update or add MUDBLAZOR_VERSION if specified and non-whitespace
+        if (-not [string]::IsNullOrWhiteSpace($MudBlazorVersion)) {
+            $mudBlazorVersionTrimmed = $MudBlazorVersion.Trim()
             $mudVar = $envVars.SelectSingleNode("environmentVariable[@name='MUDBLAZOR_VERSION']")
             if ($mudVar) {
-                $mudVar.SetAttribute("value", $MudBlazorVersion)
+                $mudVar.SetAttribute("value", $mudBlazorVersionTrimmed)
             } else {
                 $newMudVar = $webConfig.CreateElement("environmentVariable")
                 $newMudVar.SetAttribute("name", "MUDBLAZOR_VERSION")
-                $newMudVar.SetAttribute("value", $MudBlazorVersion)
+                $newMudVar.SetAttribute("value", $mudBlazorVersionTrimmed)
                 $envVars.AppendChild($newMudVar) | Out-Null
             }
-            Write-Host "Set MUDBLAZOR_VERSION to $MudBlazorVersion"
+            Write-Host "Set MUDBLAZOR_VERSION to $mudBlazorVersionTrimmed"
         }
 
         $webConfig.Save($webConfigPath)

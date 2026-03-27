@@ -52,18 +52,19 @@ if (string.IsNullOrWhiteSpace(mudBlazorVersion))
     }
     else
     {
-        mudBlazorVersion = envVersion; // null or empty, handled by validation below
+        // Treat null, empty, or whitespace-only environment values as missing
+        mudBlazorVersion = null;
     }
 }
 
-if (string.IsNullOrEmpty(mudBlazorVersion))
+if (string.IsNullOrWhiteSpace(mudBlazorVersion))
 {
-    Console.Error.WriteLine("Error: --version argument is required.");
+    Console.Error.WriteLine("Error: --version argument or MUDBLAZOR_VERSION environment variable is required.");
     Console.Error.WriteLine();
     Console.Error.WriteLine("The MudBlazor MCP server requires a specific MudBlazor version to serve documentation for.");
     Console.Error.WriteLine("Find your version in your project's .csproj file: <PackageReference Include=\"MudBlazor\" Version=\"X.Y.Z\" />");
     Console.Error.WriteLine();
-    Console.Error.WriteLine("Add --version to your .mcp.json configuration:");
+    Console.Error.WriteLine("Option 1: Add --version to your .mcp.json configuration:");
     Console.Error.WriteLine();
     Console.Error.WriteLine("  {");
     Console.Error.WriteLine("    \"mcpServers\": {");
@@ -76,6 +77,8 @@ if (string.IsNullOrEmpty(mudBlazorVersion))
     Console.Error.WriteLine("      }");
     Console.Error.WriteLine("    }");
     Console.Error.WriteLine("  }");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Option 2: Set the MUDBLAZOR_VERSION environment variable (e.g., in IIS web.config).");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Replace 9.0.0 with your project's MudBlazor version.");
     return 1;
