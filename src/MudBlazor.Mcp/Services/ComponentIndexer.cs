@@ -75,12 +75,10 @@ public sealed class ComponentIndexer : IComponentIndexer
 
                 // Ensure the CategoryMapper is initialized so category queries work
                 // even when the component data was restored from the on-disk cache.
-                await _gitService.EnsureRepositoryAsync(cancellationToken).ConfigureAwait(false);
-                if (_gitService.IsAvailable && _gitService.RepositoryPath is not null)
-                {
-                    await _categoryMapper.InitializeAsync(_gitService.RepositoryPath, cancellationToken)
-                        .ConfigureAwait(false);
-                }
+                //
+                // CategoryMapper.InitializeAsync does not currently use the repository path, so we avoid
+                // forcing a repository clone/update here to keep the cached path fast and offline-capable.
+                await _categoryMapper.InitializeAsync(string.Empty, cancellationToken).ConfigureAwait(false);
 
                 _isIndexed = true;
                 _lastIndexed = DateTimeOffset.UtcNow;
