@@ -276,14 +276,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
             var json = JsonSerializer.Serialize(_manifest, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(tempPath, json);
 
-            if (File.Exists(_manifestPath))
-            {
-                File.Replace(tempPath, _manifestPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-            else
-            {
-                File.Move(tempPath, _manifestPath, overwrite: true);
-            }
+            File.Move(tempPath, _manifestPath, overwrite: true);
             return true;
         }
         catch (IOException ex)
