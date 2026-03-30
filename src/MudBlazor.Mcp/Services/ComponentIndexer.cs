@@ -300,7 +300,7 @@ public sealed class ComponentIndexer : IComponentIndexer
                 Examples: [],
                 RelatedComponents: [],
                 DocumentationUrl: $"https://mudblazor.com/components/{dirName.ToLowerInvariant()}",
-                SourceUrl: $"{_options.Repository.Url.TrimEnd('/').Replace(".git", string.Empty)}/tree/{_versionContext.Tag}/src/MudBlazor/Components/{dirName}"
+                SourceUrl: $"{TrimTrailingGitSuffix(_options.Repository.Url)}/tree/{_versionContext.Tag}/src/MudBlazor/Components/{dirName}"
             );
 
             _components[componentName] = componentInfo;
@@ -684,5 +684,16 @@ public sealed class ComponentIndexer : IComponentIndexer
         {
             throw new InvalidOperationException("Index has not been built. Call BuildIndexAsync first.");
         }
+    }
+
+    /// <summary>
+    /// Removes a trailing ".git" suffix from a URL, leaving the rest of the URL intact.
+    /// </summary>
+    private static string TrimTrailingGitSuffix(string url)
+    {
+        var trimmed = url.TrimEnd('/');
+        return trimmed.EndsWith(".git", StringComparison.OrdinalIgnoreCase)
+            ? trimmed[..^4]
+            : trimmed;
     }
 }

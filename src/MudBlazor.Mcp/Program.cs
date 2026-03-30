@@ -183,9 +183,13 @@ static string[] StripCustomArgs(string[] args)
         if (args[i] == "--stdio")
             continue;
 
-        if (args[i] == "--version" && i + 1 < args.Length)
+        if (args[i] == "--version")
         {
-            i++; // skip the value token as well
+            // Always strip the --version flag; if a non-option value follows, skip it as well.
+            if (i + 1 < args.Length && !args[i + 1].StartsWith("-", StringComparison.Ordinal))
+            {
+                i++; // skip the value token as well
+            }
             continue;
         }
 

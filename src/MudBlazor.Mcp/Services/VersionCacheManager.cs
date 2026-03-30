@@ -116,6 +116,12 @@ public sealed class VersionCacheManager : IVersionCacheManager
                 _manifest.Versions.Remove(entry);
                 _logger.LogWarning("Pruned excess cached version {Version} (LRU)", entry.Version);
             }
+            else
+            {
+                _logger.LogWarning(
+                    "Failed to prune excess cached version {Version}; directory could not be deleted and will remain tracked",
+                    entry.Version);
+            }
         }
 
         if (!Save())
@@ -181,9 +187,17 @@ public sealed class VersionCacheManager : IVersionCacheManager
             {
                 // Over capacity — delete the orphan directory.
                 if (TryDeleteVersionDirectory(version))
+                {
                     _logger.LogWarning(
                         "Deleted orphaned version directory v{Version} (manifest at capacity {Max})",
                         version, _maxVersions);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Failed to delete orphaned version directory v{Version} while manifest at capacity {Max}; directory will remain on disk untracked",
+                        version, _maxVersions);
+                }
             }
         }
 
