@@ -72,6 +72,14 @@ public sealed class ComponentIndexer : IComponentIndexer
             {
                 _logger.LogInformation("Loaded cached index for v{Version} with {Count} components",
                     _versionContext.Version, _components.Count);
+
+                // Ensure the CategoryMapper is initialized so category queries work
+                // even when the component data was restored from the on-disk cache.
+                //
+                // CategoryMapper.InitializeAsync does not currently use the repository path, so we avoid
+                // forcing a repository clone/update here to keep the cached path fast and offline-capable.
+                await _categoryMapper.InitializeAsync(string.Empty, cancellationToken).ConfigureAwait(false);
+
                 _isIndexed = true;
                 _lastIndexed = DateTimeOffset.UtcNow;
                 return;
@@ -79,6 +87,11 @@ public sealed class ComponentIndexer : IComponentIndexer
 
             _logger.LogInformation("Starting index build for v{Version}...", _versionContext.Version);
             var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            // Clear any stale in-memory state before performing a full rebuild so that
+            // removed components/API refs from a previous run don't leak into the new index.
+            _components.Clear();
+            _apiReferences.Clear();
 
             await _gitService.EnsureRepositoryAsync(cancellationToken).ConfigureAwait(false);
 
@@ -110,6 +123,13 @@ public sealed class ComponentIndexer : IComponentIndexer
         }
     }
 
+    /// <summary>
+    /// Schema version for the on-disk cache format. Increment this value whenever the
+    /// <see cref="CachedIndex"/> record structure changes or the serialization format
+    /// is updated in a backward-incompatible way, so stale caches are automatically rebuilt.
+    /// </summary>
+    private const int CacheSchemaVersion = 2;
+
     private async Task<bool> TryLoadCachedIndexAsync(CancellationToken cancellationToken)
     {
         var indexPath = _versionContext.IndexPath;
@@ -121,6 +141,17 @@ public sealed class ComponentIndexer : IComponentIndexer
             var cached = JsonSerializer.Deserialize<CachedIndex>(json);
             if (cached is null) return false;
 
+            // Invalidate if schema version or parsing options don't match the current configuration.
+            if (cached.SchemaVersion != CacheSchemaVersion
+                || cached.IncludeInternalComponents != _options.Parsing.IncludeInternalComponents
+                || cached.IncludeDeprecatedComponents != _options.Parsing.IncludeDeprecatedComponents
+                || cached.MaxExamplesPerComponent != _options.Parsing.MaxExamplesPerComponent)
+            {
+                _logger.LogInformation("Cached index at {Path} is stale (schema or options mismatch), will rebuild", indexPath);
+                TryDeleteCacheFile(indexPath);
+                return false;
+            }
+
             _components.Clear();
             foreach (var component in cached.Components)
                 _components[component.Name] = component;
@@ -131,9 +162,14 @@ public sealed class ComponentIndexer : IComponentIndexer
 
             return true;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load cached index from {Path}, will rebuild", indexPath);
+            TryDeleteCacheFile(indexPath);
             return false;
         }
     }
@@ -143,16 +179,29 @@ public sealed class ComponentIndexer : IComponentIndexer
         try
         {
             var cached = new CachedIndex(
+                CacheSchemaVersion,
+                _options.Parsing.IncludeInternalComponents,
+                _options.Parsing.IncludeDeprecatedComponents,
+                _options.Parsing.MaxExamplesPerComponent,
                 _components.Values.ToList(),
                 _apiReferences.Values.ToList());
 
             var dir = Path.GetDirectoryName(_versionContext.IndexPath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
-            var json = JsonSerializer.Serialize(cached, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(
+                cached,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                });
             await File.WriteAllTextAsync(_versionContext.IndexPath, json, cancellationToken).ConfigureAwait(false);
 
             _logger.LogInformation("Saved index cache to {Path}", _versionContext.IndexPath);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -160,7 +209,23 @@ public sealed class ComponentIndexer : IComponentIndexer
         }
     }
 
+    private void TryDeleteCacheFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete stale cache file {Path}", path);
+        }
+    }
+
     private sealed record CachedIndex(
+        int SchemaVersion,
+        bool IncludeInternalComponents,
+        bool IncludeDeprecatedComponents,
+        int MaxExamplesPerComponent,
         List<ComponentInfo> Components,
         List<ApiReference> ApiReferences);
 
@@ -233,7 +298,7 @@ public sealed class ComponentIndexer : IComponentIndexer
                 Examples: [],
                 RelatedComponents: [],
                 DocumentationUrl: $"https://mudblazor.com/components/{dirName.ToLowerInvariant()}",
-                SourceUrl: $"https://github.com/MudBlazor/MudBlazor/tree/dev/src/MudBlazor/Components/{dirName}"
+                SourceUrl: $"{TrimTrailingGitSuffix(_options.Repository.Url)}/tree/{_versionContext.Tag}/src/MudBlazor/Components/{dirName}"
             );
 
             _components[componentName] = componentInfo;
@@ -617,5 +682,16 @@ public sealed class ComponentIndexer : IComponentIndexer
         {
             throw new InvalidOperationException("Index has not been built. Call BuildIndexAsync first.");
         }
+    }
+
+    /// <summary>
+    /// Removes a trailing ".git" suffix from a URL, leaving the rest of the URL intact.
+    /// </summary>
+    private static string TrimTrailingGitSuffix(string url)
+    {
+        var trimmed = url.TrimEnd('/');
+        return trimmed.EndsWith(".git", StringComparison.OrdinalIgnoreCase)
+            ? trimmed[..^4]
+            : trimmed;
     }
 }

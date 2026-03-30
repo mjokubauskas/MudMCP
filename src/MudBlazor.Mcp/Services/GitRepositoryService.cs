@@ -80,15 +80,40 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
             {
                 _logger.LogInformation("Repository for v{Version} already available at {Path}",
                     _versionContext.Version, RepositoryPath);
+                // Upsert: register if missing (e.g., versions.json was deleted/corrupted), then touch.
+                _cacheManager.RegisterVersion(_versionContext.Version);
                 _cacheManager.TouchVersion(_versionContext.Version);
                 return false;
             }
 
-            // Evict oldest version if at capacity
-            var evicted = _cacheManager.EvictIfNeeded();
-            if (evicted is not null)
+            // Only evict when adding a truly new version to the cache.
+            if (!_cacheManager.IsVersionCached(_versionContext.Version))
             {
-                _logger.LogInformation("Evicted cached version v{Version} (LRU)", evicted);
+                var eviction = _cacheManager.EvictToMakeRoomForNewVersion();
+                switch (eviction.Status)
+                {
+                    case EvictionStatus.Evicted:
+                        _logger.LogInformation("Evicted cached version v{Version} (LRU)", eviction.EvictedVersion);
+                        break;
+                    case EvictionStatus.Failed:
+                        _logger.LogError(
+                            "Eviction failed for MudBlazor v{Version}; aborting clone to avoid exceeding MaxCachedVersions",
+                            _versionContext.Version);
+                        throw new InvalidOperationException(
+                            $"Failed to evict an existing cached MudBlazor version; cannot cache new version {_versionContext.Version}.");
+                    case EvictionStatus.NotNeeded:
+                        _logger.LogDebug(
+                            "No eviction needed when caching MudBlazor v{Version}; within MaxCachedVersions limit",
+                            _versionContext.Version);
+                        break;
+                    default:
+                        _logger.LogError(
+                            "Unhandled eviction status {Status} when preparing to cache MudBlazor v{Version}",
+                            eviction.Status,
+                            _versionContext.Version);
+                        throw new InvalidOperationException(
+                            $"Unhandled eviction status '{eviction.Status}' while preparing to cache MudBlazor version '{_versionContext.Version}'.");
+                }
             }
 
             _logger.LogInformation("Cloning MudBlazor repository at tag {Tag} to {Path}",
@@ -121,6 +146,7 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
             }, cancellationToken).ConfigureAwait(false);
 
             _cacheManager.RegisterVersion(_versionContext.Version);
+            _cacheManager.TouchVersion(_versionContext.Version);
 
             _logger.LogInformation("Successfully cloned MudBlazor v{Version}. Commit: {Commit}",
                 _versionContext.Version, CurrentCommitHash);

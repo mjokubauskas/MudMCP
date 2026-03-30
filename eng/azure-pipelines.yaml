@@ -57,6 +57,8 @@ variables:
     value: 'MudBlazorMcpPool'
   - name: iisPhysicalPath
     value: 'C:\inetpub\wwwroot\MudBlazorMcp'
+  - name: mudBlazorVersion
+    value: '9.0.0'
 
 stages:
   # ============================================
@@ -216,6 +218,7 @@ stages:
                     physicalPath: '$(iisPhysicalPath)'
                     environment: '$(aspnetCoreEnvironment)'
                     port: 5180
+                    mudBlazorVersion: '$(mudBlazorVersion)'
             routeTraffic:
               steps:
                 - script: echo "Routing traffic to new deployment..."
@@ -272,6 +275,7 @@ stages:
                     physicalPath: '$(iisPhysicalPath)'
                     environment: '$(aspnetCoreEnvironment)'
                     port: 5180
+                    mudBlazorVersion: '$(mudBlazorVersion)'
             routeTraffic:
               steps:
                 - script: echo "Routing traffic to new deployment..."

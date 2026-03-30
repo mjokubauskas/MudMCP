@@ -10,16 +10,61 @@ using MudBlazor.Mcp.Services.Parsing;
 // Check for stdio transport mode
 var useStdio = args.Contains("--stdio");
 
-// Parse required --version argument
+// Parse required --version argument (supports both "--version X.Y.Z" and "--version=X.Y.Z")
+string? mudBlazorVersion = null;
 var versionIndex = Array.IndexOf(args, "--version");
-if (versionIndex < 0 || versionIndex + 1 >= args.Length)
+if (versionIndex >= 0 && versionIndex + 1 < args.Length)
 {
-    Console.Error.WriteLine("Error: --version argument is required.");
+    // Space-separated form: --version X.Y.Z
+    var candidate = args[versionIndex + 1];
+    if (!string.IsNullOrEmpty(candidate) && candidate[0] != '-')
+    {
+        mudBlazorVersion = candidate;
+    }
+}
+else
+{
+    // Equals form: --version=X.Y.Z
+    var equalsArg = args.FirstOrDefault(a => a.StartsWith("--version=", StringComparison.OrdinalIgnoreCase));
+    if (equalsArg is not null)
+    {
+        mudBlazorVersion = equalsArg["--version=".Length..];
+    }
+}
+
+// Normalize CLI argument: trim and treat empty/whitespace as missing
+if (!string.IsNullOrWhiteSpace(mudBlazorVersion))
+{
+    mudBlazorVersion = mudBlazorVersion.Trim();
+}
+else
+{
+    mudBlazorVersion = null;
+}
+
+// Fallback to environment variable (used by IIS hosting via web.config environmentVariables)
+if (string.IsNullOrWhiteSpace(mudBlazorVersion))
+{
+    var envVersion = Environment.GetEnvironmentVariable("MUDBLAZOR_VERSION");
+    if (!string.IsNullOrWhiteSpace(envVersion))
+    {
+        mudBlazorVersion = envVersion.Trim();
+    }
+    else
+    {
+        // Treat null, empty, or whitespace-only environment values as missing
+        mudBlazorVersion = null;
+    }
+}
+
+if (string.IsNullOrWhiteSpace(mudBlazorVersion))
+{
+    Console.Error.WriteLine("Error: --version argument or MUDBLAZOR_VERSION environment variable is required.");
     Console.Error.WriteLine();
     Console.Error.WriteLine("The MudBlazor MCP server requires a specific MudBlazor version to serve documentation for.");
     Console.Error.WriteLine("Find your version in your project's .csproj file: <PackageReference Include=\"MudBlazor\" Version=\"X.Y.Z\" />");
     Console.Error.WriteLine();
-    Console.Error.WriteLine("Add --version to your .mcp.json configuration:");
+    Console.Error.WriteLine("Option 1: Add --version to your .mcp.json configuration:");
     Console.Error.WriteLine();
     Console.Error.WriteLine("  {");
     Console.Error.WriteLine("    \"mcpServers\": {");
@@ -33,22 +78,26 @@ if (versionIndex < 0 || versionIndex + 1 >= args.Length)
     Console.Error.WriteLine("    }");
     Console.Error.WriteLine("  }");
     Console.Error.WriteLine();
+    Console.Error.WriteLine("Option 2: Set the MUDBLAZOR_VERSION environment variable (e.g., in IIS web.config).");
+    Console.Error.WriteLine();
     Console.Error.WriteLine("Replace 9.0.0 with your project's MudBlazor version.");
     return 1;
 }
-var mudBlazorVersion = args[versionIndex + 1];
 
-if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\.\d+"))
+if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"))
 {
-    Console.Error.WriteLine($"Error: '{mudBlazorVersion}' is not a valid version. Expected format: X.Y.Z (e.g., 9.0.0)");
+    Console.Error.WriteLine($"Error: '{mudBlazorVersion}' is not a valid version. Expected format: X.Y.Z or X.Y.Z-prerelease (e.g., 9.0.0 or 9.0.0-preview.1)");
     return 1;
 }
+
+// Strip custom arguments so they don't leak into the .NET host builder configuration.
+var filteredArgs = StripCustomArgs(args);
 
 if (useStdio)
 {
     // Stdio mode: plain console host — no Kestrel, no health endpoints.
     // All logs must go to stderr so stdout remains clean for MCP protocol frames.
-    var builder = Host.CreateApplicationBuilder(args);
+    var builder = Host.CreateApplicationBuilder(filteredArgs);
 
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole(options =>
@@ -76,8 +125,9 @@ if (useStdio)
 else
 {
     // HTTP mode: full ASP.NET Core web host with health checks and streamable HTTP transport.
-    var builder = WebApplication.CreateBuilder(args);
+    var builder = WebApplication.CreateBuilder(filteredArgs);
 
+    builder.Logging.ClearProviders();
     builder.Logging.AddConsole(options =>
     {
         options.LogToStandardErrorThreshold = LogLevel.Trace;
@@ -125,18 +175,48 @@ else
 // Helpers
 // ---------------------------------------------------------------------------
 
+static string[] StripCustomArgs(string[] args)
+{
+    var filtered = new List<string>(args.Length);
+    for (var i = 0; i < args.Length; i++)
+    {
+        if (args[i] == "--stdio")
+            continue;
+
+        if (args[i] == "--version")
+        {
+            // Always strip the --version flag; if a non-option value follows, skip it as well.
+            if (i + 1 < args.Length && !args[i + 1].StartsWith("-", StringComparison.Ordinal))
+            {
+                i++; // skip the value token as well
+            }
+            continue;
+        }
+
+        if (args[i].StartsWith("--version=", StringComparison.OrdinalIgnoreCase))
+            continue;
+
+        filtered.Add(args[i]);
+    }
+
+    return [.. filtered];
+}
+
 static void RegisterCoreServices(IServiceCollection services, IConfiguration configuration, string version)
 {
-    services.AddSingleton(new VersionContext(version));
     services.Configure<MudBlazorOptions>(configuration.GetSection("MudBlazor"));
     services.Configure<RepositoryOptions>(configuration.GetSection("MudBlazor:Repository"));
     services.Configure<CacheOptions>(configuration.GetSection("MudBlazor:Cache"));
     services.Configure<ParsingOptions>(configuration.GetSection("MudBlazor:Parsing"));
 
-    // Read MaxCachedVersions from config
+    // Read config to derive shared data path
     var repoOptions = configuration.GetSection("MudBlazor:Repository").Get<RepositoryOptions>() ?? new RepositoryOptions();
-    services.AddSingleton<IVersionCacheManager>(
-        new VersionCacheManager("./data", repoOptions.MaxCachedVersions));
+    services.AddSingleton(new VersionContext(version, repoOptions.DataPath));
+    services.AddSingleton<IVersionCacheManager>(sp =>
+        new VersionCacheManager(
+            repoOptions.DataPath,
+            repoOptions.MaxCachedVersions,
+            logger: sp.GetRequiredService<ILogger<VersionCacheManager>>()));
 
     services.AddMemoryCache();
 

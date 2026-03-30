@@ -37,11 +37,11 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# The app clones the MudBlazor source repository here at startup.
-# Mount a named volume at this path so the clone persists across restarts.
-# Path matches MudBlazor:Repository:LocalPath → ./data/mudblazor-repo (relative to /app).
-RUN mkdir -p /app/data/mudblazor-repo
-VOLUME ["/app/data/mudblazor-repo"]
+# The app stores per-version git clones, serialized index files, and the
+# versions.json manifest under /app/data/v{Version}/.
+# Mount a named volume at /app/data so all cached data persists across restarts.
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
 
 # Use port 8080 inside the container (12-factor / Fly.io / Azure Container Apps
 # convention). The host-side mapping is defined in docker-compose.yml.

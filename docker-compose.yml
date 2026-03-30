@@ -14,18 +14,17 @@ services:
       # mcp.json / claude_desktop_config.json files need no changes.
       - "5180:8080"
     volumes:
-      # Mount directly at the LocalPath configured in appsettings.json
-      # (./data/mudblazor-repo relative to /app = /app/data/mudblazor-repo).
-      # Without this volume the ~500 MB clone runs on every `docker compose up`.
-      - mudblazor-data:/app/data/mudblazor-repo
+      # Mount the whole data directory so per-version clones, index files, and
+      # versions.json all persist across restarts.
+      - mudblazor-data:/app/data
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      # Explicitly set the repo path so it matches the mounted volume above.
-      - MudBlazor__Repository__LocalPath=/app/data/mudblazor-repo
       # Add the MudBlazor version as an environment variable so it can be overridden at runtime
       - MUDBLAZOR_VERSION=9.0.0
-      # Override the branch if needed:
-      # - MudBlazor__Repository__Branch=dev
+      # Other supported overrides:
+      # - MudBlazor__Repository__Url=https://github.com/MudBlazor/MudBlazor.git
+      # - MudBlazor__Repository__DataPath=/app/data
+      # - MudBlazor__Repository__MaxCachedVersions=5
     healthcheck:
       # /health/live returns 200 immediately; /health/ready becomes healthy only
       # after the component index has been built (may take a few minutes on
