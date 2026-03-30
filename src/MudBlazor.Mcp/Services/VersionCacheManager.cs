@@ -149,7 +149,7 @@ public sealed class VersionCacheManager : IVersionCacheManager
         {
             orphanVersions = Directory.GetDirectories(_dataPath, "v*")
                 .Select(dir => Path.GetFileName(dir))
-                .Where(name => name.Length > 1 && name.StartsWith('v'))
+                .Where(name => name.Length > 1 && name.StartsWith("v", StringComparison.OrdinalIgnoreCase))
                 .Select(name => name[1..]) // strip the 'v' prefix
                 .Where(version => !trackedVersions.Contains(version))
                 .Order(StringComparer.OrdinalIgnoreCase)
@@ -220,8 +220,12 @@ public sealed class VersionCacheManager : IVersionCacheManager
             if (!Directory.Exists(versionDir))
                 return true;
 
-            foreach (var file in new DirectoryInfo(versionDir).GetFiles("*", SearchOption.AllDirectories))
-                file.Attributes = FileAttributes.Normal;
+            var rootDir = new DirectoryInfo(versionDir);
+            foreach (var entry in rootDir.EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
+            {
+                entry.Attributes = FileAttributes.Normal;
+            }
+            rootDir.Attributes = FileAttributes.Normal;
             Directory.Delete(versionDir, true);
             return true;
         }
