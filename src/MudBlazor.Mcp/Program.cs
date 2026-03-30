@@ -84,7 +84,7 @@ if (string.IsNullOrWhiteSpace(mudBlazorVersion))
     return 1;
 }
 
-if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$"))
+if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\.\d+(-[0-9A-Za-z\.-]+)?$"))
 {
     Console.Error.WriteLine($"Error: '{mudBlazorVersion}' is not a valid version. Expected format: X.Y.Z or X.Y.Z-prerelease (e.g., 9.0.0 or 9.0.0-preview.1)");
     return 1;

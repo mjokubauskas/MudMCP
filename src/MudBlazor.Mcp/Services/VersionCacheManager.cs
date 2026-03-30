@@ -255,11 +255,11 @@ public sealed class VersionCacheManager : IVersionCacheManager
 
     private bool Save()
     {
+        var tempPath = _manifestPath + ".tmp";
         try
         {
             Directory.CreateDirectory(_dataPath);
             var json = JsonSerializer.Serialize(_manifest, new JsonSerializerOptions { WriteIndented = true });
-            var tempPath = _manifestPath + ".tmp";
             File.WriteAllText(tempPath, json);
 
             if (File.Exists(_manifestPath))
@@ -275,12 +275,29 @@ public sealed class VersionCacheManager : IVersionCacheManager
         catch (IOException ex)
         {
             _logger.LogWarning(ex, "IO error saving versions manifest to {Path}", _manifestPath);
+            TryDeleteTempFile(tempPath);
             return false;
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "Permission error saving versions manifest to {Path}", _manifestPath);
+            TryDeleteTempFile(tempPath);
             return false;
+        }
+    }
+
+    private void TryDeleteTempFile(string tempPath)
+    {
+        try
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to clean up temporary manifest file at {Path}", tempPath);
         }
     }
 }

@@ -378,7 +378,7 @@ public class ComponentIndexerTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(context.IndexPath)!);
         var staleJson = """
             {
-                "SchemaVersion": 1,
+                "SchemaVersion": 2,
                 "IncludeInternalComponents": true,
                 "IncludeDeprecatedComponents": true,
                 "MaxExamplesPerComponent": 20,
