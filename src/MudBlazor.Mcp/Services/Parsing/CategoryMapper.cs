@@ -29,7 +29,10 @@ public sealed class CategoryMapper
     /// <returns>A task representing the initialization operation.</returns>
     public Task InitializeAsync(string repositoryPath, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
+        // Note: repositoryPath is currently unused — categories are hard-coded from MudBlazor's
+        // MenuService. ComponentIndexer passes string.Empty on the cached-load fast path, so we
+        // must not reject empty/whitespace values here.
+        ArgumentNullException.ThrowIfNull(repositoryPath);
 
         if (_isInitialized)
             return Task.CompletedTask;
