@@ -132,8 +132,11 @@ Scripts can be executed manually for troubleshooting:
 # Create backup
 .\eng\scripts\Backup-Deployment.ps1 -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 
+# Configure HTTPS binding
+.\eng\scripts\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 8000 -BindingProtocol https -SslCertificateThumbprint "ABCD1234..."
+
 # Test health
-.\eng\scripts\Test-DeploymentHealth.ps1 -Port 8000 -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
+.\eng\scripts\Test-DeploymentHealth.ps1 -Port 8000 -Scheme https -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 ```
 
 ## Configuration
@@ -147,7 +150,9 @@ Scripts can be executed manually for troubleshooting:
 | `iisWebsiteName` | IIS website name | `MudBlazorMcp` |
 | `iisAppPoolName` | IIS app pool name | `MudBlazorMcpPool` |
 | `iisPhysicalPath` | Deployment path | `C:\inetpub\wwwroot\MudBlazorMcp` |
-| `iisPort` | IIS website HTTP port | `8000` |
+| `iisPort` | IIS website binding port | `8000` |
+| `iisBindingProtocol` | IIS website binding protocol | `https` |
+| `iisSslCertificateThumbprint` | Optional HTTPS certificate thumbprint from `Cert:\LocalMachine\My` | empty |
 | `deploymentHealthMaxRetries` | Health check retry count | `6` |
 | `deploymentHealthRetryDelaySeconds` | Delay between health check retries | `10` |
 | `mudBlazorVersion` | MudBlazor docs version served by the MCP server | `9.0.0` |
@@ -155,6 +160,8 @@ Scripts can be executed manually for troubleshooting:
 ### Environment-Specific Settings
 
 Dev, test, and production share the same IIS deployment settings from the pipeline variables above and the same deployment lifecycle from `eng/templates/deploy-iis-stage.yaml`. Only the Azure DevOps environment name and `ASPNETCORE_ENVIRONMENT` value differ by environment.
+
+The shared deployment configures an HTTPS IIS binding by default. Set `iisSslCertificateThumbprint` when the target server needs the deployment to assign a certificate to the binding. If the value is empty, the script preserves any existing certificate binding for the site and port.
 
 If a server needs environment-specific application settings, create the appropriate `appsettings.{Environment}.json` file on that server. The deployment preserves server-managed `appsettings.*.json` files. For example, production can use `appsettings.Production.json`:
 

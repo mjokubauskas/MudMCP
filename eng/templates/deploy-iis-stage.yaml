@@ -36,6 +36,12 @@ parameters:
   - name: port
     type: string
     default: '8000'
+  - name: bindingProtocol
+    type: string
+    default: 'https'
+  - name: sslCertificateThumbprint
+    type: string
+    default: ''
   - name: mudBlazorVersion
     type: string
     default: ''
@@ -76,7 +82,10 @@ stages:
                     physicalPath: ${{ parameters.physicalPath }}
                     environment: ${{ parameters.aspnetCoreEnvironment }}
                     port: ${{ parameters.port }}
+                    bindingProtocol: ${{ parameters.bindingProtocol }}
+                    sslCertificateThumbprint: ${{ parameters.sslCertificateThumbprint }}
                     mudBlazorVersion: ${{ parameters.mudBlazorVersion }}
+                    healthScheme: ${{ parameters.bindingProtocol }}
                     healthMaxRetries: ${{ parameters.healthMaxRetries }}
                     healthRetryDelaySeconds: ${{ parameters.healthRetryDelaySeconds }}
             routeTraffic:

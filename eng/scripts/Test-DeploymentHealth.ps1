@@ -3,14 +3,17 @@
 
 <#
 .SYNOPSIS
-    Tests deployment health by making HTTP requests to the health endpoint.
+    Tests deployment health by making HTTP(S) requests to the health endpoint.
 
 .DESCRIPTION
     Performs health checks against the deployed application and collects diagnostic
     information if the health check fails.
 
 .PARAMETER Port
-    HTTP port for the health check (default: 8000).
+    Port for the health check (default: 8000).
+
+.PARAMETER Scheme
+    URI scheme for the health check (default: https).
 
 .PARAMETER AppPoolName
     Name of the IIS application pool (for diagnostics).
@@ -25,7 +28,7 @@
     Delay between retries in seconds (default: 10).
 
 .EXAMPLE
-    .\Test-DeploymentHealth.ps1 -Port 8000 -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
+    .\Test-DeploymentHealth.ps1 -Port 8000 -Scheme https -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 #>
 
 [CmdletBinding()]
@@ -33,6 +36,10 @@ param(
     [Parameter(Mandatory=$false)]
     [ValidateRange(1, 65535)]
     [int]$Port = 8000,
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet('http', 'https')]
+    [string]$Scheme = 'https',
     
     [Parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -62,8 +69,9 @@ Test-IisResourceName -Name $AppPoolName -ResourceType 'app pool'
 
 # Validate and normalize physical path
 $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPath'
+$Scheme = $Scheme.ToLowerInvariant()
 
-$healthUrl = "http://localhost:$Port/health"
+$healthUrl = "${Scheme}://localhost:$Port/health"
 
 Write-Host "Waiting for application to start..."
 Start-Sleep -Seconds 5

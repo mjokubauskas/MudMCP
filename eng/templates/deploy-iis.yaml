@@ -23,8 +23,16 @@ parameters:
     default: 'Production'
   - name: port
     type: string
-    displayName: 'HTTP port for the website'
+    displayName: 'Port for the website binding'
     default: '8000'
+  - name: bindingProtocol
+    type: string
+    displayName: 'IIS binding protocol'
+    default: 'https'
+  - name: sslCertificateThumbprint
+    type: string
+    displayName: 'HTTPS certificate thumbprint'
+    default: ''
   - name: mudBlazorVersion
     type: string
     displayName: 'MudBlazor version to serve documentation for'
@@ -33,6 +41,10 @@ parameters:
     type: string
     displayName: 'Maximum health check retries'
     default: '6'
+  - name: healthScheme
+    type: string
+    displayName: 'Health check URI scheme'
+    default: 'https'
   - name: healthRetryDelaySeconds
     type: string
     displayName: 'Health check retry delay in seconds'
@@ -80,7 +92,7 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Configure-IisWebsite.ps1'
-      arguments: '-WebsiteName "${{ parameters.websiteName }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -Port ${{ parameters.port }}'
+      arguments: '-WebsiteName "${{ parameters.websiteName }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -Port ${{ parameters.port }} -BindingProtocol "${{ parameters.bindingProtocol }}" -SslCertificateThumbprint "${{ parameters.sslCertificateThumbprint }}"'
 
   - task: PowerShell@2
     displayName: 'Update environment settings'
@@ -108,4 +120,4 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Test-DeploymentHealth.ps1'
-      arguments: '-Port ${{ parameters.port }} -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries ${{ parameters.healthMaxRetries }} -RetryDelaySeconds ${{ parameters.healthRetryDelaySeconds }}'
+      arguments: '-Port ${{ parameters.port }} -Scheme "${{ parameters.healthScheme }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries ${{ parameters.healthMaxRetries }} -RetryDelaySeconds ${{ parameters.healthRetryDelaySeconds }}'
