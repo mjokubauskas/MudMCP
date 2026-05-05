@@ -10,7 +10,7 @@
     information if the health check fails.
 
 .PARAMETER Port
-    HTTP port for the health check (default: 5180).
+    HTTP port for the health check (default: 8000).
 
 .PARAMETER AppPoolName
     Name of the IIS application pool (for diagnostics).
@@ -25,14 +25,14 @@
     Delay between retries in seconds (default: 10).
 
 .EXAMPLE
-    .\Test-DeploymentHealth.ps1 -Port 5180 -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
+    .\Test-DeploymentHealth.ps1 -Port 8000 -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 #>
 
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
     [ValidateRange(1, 65535)]
-    [int]$Port = 5180,
+    [int]$Port = 8000,
     
     [Parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]

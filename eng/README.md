@@ -8,7 +8,8 @@ This folder contains Azure DevOps pipeline configurations for building, testing,
 eng/
 ├── azure-pipelines.yaml          # Main pipeline definition
 ├── templates/
-│   └── deploy-iis.yaml           # Reusable IIS deployment template
+│   ├── deploy-iis-stage.yaml     # Reusable environment deployment stage template
+│   └── deploy-iis.yaml           # Reusable IIS deployment step template
 ├── scripts/                      # PowerShell deployment scripts
 │   ├── Stop-IisSiteAndAppPool.ps1
 │   ├── Backup-Deployment.ps1
@@ -24,7 +25,7 @@ eng/
 
 ## Pipeline Overview
 
-The pipeline consists of three stages:
+The pipeline consists of build validation plus shared IIS deployment stages:
 
 ### 1. Build Stage
 - Restores NuGet packages (with caching)
@@ -36,21 +37,30 @@ The pipeline consists of three stages:
 ### 2. Deploy to Development
 - Triggers on `develop` branch
 - Deploys to `mudblazor-mcp-dev` environment
-- Uses IIS deployment template
+- Uses the shared IIS deployment stage and step templates
 
-### 3. Deploy to Production
+### 3. Deploy to Test
+- Triggers on `main` branch after Build
+- Deploys to `mudblazor-mcp-test` environment
+- Uses `ASPNETCORE_ENVIRONMENT=Staging`
+- Uses the same IIS deployment configuration as development and production
+
+### 4. Deploy to Production
 - Triggers on `main` branch
+- Runs after the Test deployment succeeds
 - Deploys to `mudblazor-mcp-prod` environment
 - Includes health checks and rollback notifications
+- Uses the same IIS deployment configuration as development and test
 
 ## Prerequisites
 
 ### Azure DevOps Setup
 
 1. **Create Environments**:
-   - Go to Pipelines → Environments
-   - Create `mudblazor-mcp-dev` for development
-   - Create `mudblazor-mcp-prod` for production (with approval gates)
+    - Go to Pipelines → Environments
+    - Create `mudblazor-mcp-dev` for development
+    - Create `mudblazor-mcp-test` for test
+    - Create `mudblazor-mcp-prod` for production (with approval gates)
 
 2. **Register VM as Deployment Target**:
    - In each environment, click "Add resource" → "Virtual machines"
@@ -123,7 +133,7 @@ Scripts can be executed manually for troubleshooting:
 .\eng\scripts\Backup-Deployment.ps1 -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 
 # Test health
-.\eng\scripts\Test-DeploymentHealth.ps1 -Port 5180 -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
+.\eng\scripts\Test-DeploymentHealth.ps1 -Port 8000 -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 ```
 
 ## Configuration
@@ -137,10 +147,16 @@ Scripts can be executed manually for troubleshooting:
 | `iisWebsiteName` | IIS website name | `MudBlazorMcp` |
 | `iisAppPoolName` | IIS app pool name | `MudBlazorMcpPool` |
 | `iisPhysicalPath` | Deployment path | `C:\inetpub\wwwroot\MudBlazorMcp` |
+| `iisPort` | IIS website HTTP port | `8000` |
+| `deploymentHealthMaxRetries` | Health check retry count | `6` |
+| `deploymentHealthRetryDelaySeconds` | Delay between health check retries | `10` |
+| `mudBlazorVersion` | MudBlazor docs version served by the MCP server | `9.0.0` |
 
 ### Environment-Specific Settings
 
-For production, create `appsettings.Production.json` on the server:
+Dev, test, and production share the same IIS deployment settings from the pipeline variables above and the same deployment lifecycle from `eng/templates/deploy-iis-stage.yaml`. Only the Azure DevOps environment name and `ASPNETCORE_ENVIRONMENT` value differ by environment.
+
+If a server needs environment-specific application settings, create the appropriate `appsettings.{Environment}.json` file on that server. The deployment preserves server-managed `appsettings.*.json` files. For example, production can use `appsettings.Production.json`:
 
 ```json
 {
@@ -162,7 +178,7 @@ For production, create `appsettings.Production.json` on the server:
 ### Automatic Triggers
 
 - **Develop branch**: Triggers Build + Deploy to Dev
-- **Main branch**: Triggers Build + Deploy to Production
+- **Main branch**: Triggers Build + Deploy to Test + Deploy to Production
 
 ### Manual Run
 
@@ -184,7 +200,7 @@ Get-EventLog -LogName System -Source "IIS*" -Newest 10
 **Health check fails**:
 ```powershell
 # Check if app is listening
-netstat -an | Select-String "5180"
+netstat -an | Select-String "8000"
 
 # Check application logs
 Get-Content "C:\inetpub\wwwroot\MudBlazorMcp\logs\stdout*.log" -Tail 50

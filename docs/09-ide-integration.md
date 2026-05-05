@@ -21,7 +21,7 @@ Mud MCP supports two transport mechanisms:
 | Transport | Use Case | Endpoint |
 |-----------|----------|----------|
 | **stdio** | Local CLI clients (recommended) | stdin/stdout |
-| **HTTP** | Web-based clients, remote access | `http://localhost:5180/mcp` |
+| **HTTP** | Web-based clients, remote access | `http://localhost:8000/mcp` |
 
 ---
 
@@ -266,7 +266,7 @@ For clients supporting HTTP transport:
 # Start server in HTTP mode (default)
 dotnet run --project src/MudBlazor.Mcp
 
-# Server available at: http://localhost:5180/mcp
+# Server available at: http://localhost:8000/mcp
 ```
 
 ### Custom Client Integration
@@ -449,10 +449,10 @@ echo '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}' | dotnet run -
 **HTTP:**
 ```bash
 # Health check
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 
 # MCP endpoint
-curl -X POST http://localhost:5180/mcp \
+curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
 ```

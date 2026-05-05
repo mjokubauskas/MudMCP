@@ -93,7 +93,7 @@ cd src/MudBlazor.Mcp
 dotnet run
 ```
 
-Server runs at `http://localhost:5180/mcp`
+Server runs at `http://localhost:8000/mcp`
 
 ---
 
@@ -125,7 +125,7 @@ npx @modelcontextprotocol/inspector \
 
 2. In another terminal, start inspector:
    ```bash
-   npx @modelcontextprotocol/inspector --url http://localhost:5180/mcp
+  npx @modelcontextprotocol/inspector --url http://localhost:8000/mcp
    ```
 
 ### Inspector Interface
@@ -421,7 +421,7 @@ Before testing, verify server health:
 
 ```bash
 # HTTP transport only
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 ```
 
 Expected response:
@@ -472,7 +472,7 @@ Error: Failed to clone repository
 
 **Symptom:**
 ```
-Error: connect ECONNREFUSED 127.0.0.1:5180
+Error: connect ECONNREFUSED 127.0.0.1:8000
 ```
 
 **Solutions:**

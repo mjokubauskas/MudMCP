@@ -20,7 +20,7 @@ Solutions for common issues when running Mud MCP.
 ### Health Check (HTTP Mode)
 
 ```bash
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 ```
 
 **Healthy Response:**
@@ -95,14 +95,14 @@ dotnet run --project "C:\Path\To\MudBlazor.Mcp\src\MudBlazor.Mcp"
 
 **Error:**
 ```
-System.IO.IOException: Failed to bind to address http://127.0.0.1:5180
+System.IO.IOException: Failed to bind to address http://127.0.0.1:8000
 ```
 
 **Solutions:**
 
 ```bash
 # Find what's using the port
-netstat -ano | findstr :5180
+netstat -ano | findstr :8000
 
 # Kill the process (replace PID)
 taskkill /PID <PID> /F
@@ -237,7 +237,7 @@ Component index is not ready. The server may still be initializing.
    ```
 3. **Check health endpoint:**
    ```bash
-   curl http://localhost:5180/health
+  curl http://localhost:8000/health
    ```
 
 ### Issue: "No components found"
@@ -587,7 +587,7 @@ dotnet --info
 dotnet list package
 
 # Health check
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 ```
 
 ### Report Issues
@@ -614,13 +614,13 @@ Include in bug reports:
 
 ```bash
 # Health check
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 
 # List tools
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | dotnet run -- --stdio 2>nul
 
 # Test specific tool
-curl -X POST http://localhost:5180/mcp \
+curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_components"},"id":1}'
 ```

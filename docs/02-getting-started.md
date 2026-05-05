@@ -101,7 +101,7 @@ dotnet run
 **What happens on first startup:**
 1. The MudBlazor repository is cloned from GitHub (~1-2 minutes)
 2. Component index is built (~10-30 seconds)
-3. Server starts on `http://localhost:5180`
+3. Server starts on `http://localhost:8000`
 
 **Console output:**
 ```
@@ -112,7 +112,7 @@ info: MudBlazor.Mcp.Services.GitRepositoryService[0]
 info: MudBlazor.Mcp.Services.ComponentIndexer[0]
       Index build completed in 15432ms. Indexed 85 components
 info: Microsoft.Hosting.Lifetime[0]
-      Now listening on: http://localhost:5180
+      Now listening on: http://localhost:8000
 ```
 
 ### stdio Transport
@@ -149,7 +149,7 @@ This starts:
 ### 1. Health Check
 
 ```bash
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 ```
 
 **Healthy response:**
@@ -177,7 +177,7 @@ curl http://localhost:5180/health
 ### 2. List Available Tools
 
 ```bash
-curl -X POST http://localhost:5180/mcp \
+curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}'
 ```
@@ -202,7 +202,7 @@ curl -X POST http://localhost:5180/mcp \
 ### 3. Test a Tool
 
 ```bash
-curl -X POST http://localhost:5180/mcp \
+curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -297,7 +297,7 @@ dotnet run --urls "http://localhost:8080"
    {
      "servers": {
        "mudblazor": {
-         "url": "http://localhost:5180/mcp"
+         "url": "http://localhost:8000/mcp"
        }
      }
    }
@@ -359,9 +359,9 @@ git clone https://github.com/MudBlazor/MudBlazor.git ./data/mudblazor-repo
 
 **Solutions:**
 ```bash
-# Find process using port 5180
-netstat -ano | findstr :5180  # Windows
-lsof -i :5180                  # macOS/Linux
+# Find process using port 8000
+netstat -ano | findstr :8000  # Windows
+lsof -i :8000                  # macOS/Linux
 
 # Kill the process or use different port
 dotnet run --urls "http://localhost:5181"

@@ -264,7 +264,7 @@ Standard .NET logging configuration.
     "http": {
       "commandName": "Project",
       "launchBrowser": false,
-      "applicationUrl": "http://localhost:5180",
+      "applicationUrl": "http://localhost:8000",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
@@ -293,7 +293,7 @@ For advanced scenarios:
   "Kestrel": {
     "Endpoints": {
       "Http": {
-        "Url": "http://localhost:5180"
+        "Url": "http://localhost:8000"
       }
     },
     "Limits": {
@@ -419,10 +419,10 @@ services:
   mudblazor-mcp:
     build: .
     ports:
-      - "5180:5180"
+      - "8000:8000"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:5180
+      - ASPNETCORE_URLS=http://+:8000
       - MudBlazor__Repository__LocalPath=/app/data/repo
       - Logging__LogLevel__Default=Warning
     volumes:

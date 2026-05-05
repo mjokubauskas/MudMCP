@@ -22,13 +22,21 @@ parameters:
     displayName: 'ASP.NET Core environment'
     default: 'Production'
   - name: port
-    type: number
+    type: string
     displayName: 'HTTP port for the website'
-    default: 5180
+    default: '8000'
   - name: mudBlazorVersion
     type: string
     displayName: 'MudBlazor version to serve documentation for'
     default: ''
+  - name: healthMaxRetries
+    type: string
+    displayName: 'Maximum health check retries'
+    default: '6'
+  - name: healthRetryDelaySeconds
+    type: string
+    displayName: 'Health check retry delay in seconds'
+    default: '10'
 
 steps:
   # Checkout source to get deployment scripts
@@ -100,4 +108,4 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Test-DeploymentHealth.ps1'
-      arguments: '-Port ${{ parameters.port }} -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries 6 -RetryDelaySeconds 10'
+      arguments: '-Port ${{ parameters.port }} -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries ${{ parameters.healthMaxRetries }} -RetryDelaySeconds ${{ parameters.healthRetryDelaySeconds }}'

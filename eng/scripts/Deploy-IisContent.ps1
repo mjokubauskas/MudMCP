@@ -7,7 +7,7 @@
 
 .DESCRIPTION
     Copies application files from the artifact path to the IIS physical path.
-    Preserves server-specific files like logs, data, and production configuration.
+    Preserves server-specific files like logs, data, and environment-specific configuration.
 
 .PARAMETER ArtifactPath
     Path to the published artifact (source).
@@ -102,16 +102,19 @@ if (-not (Test-Path $PhysicalPath)) {
 }
 
 # Clear existing files (except logs, data, and server-managed config)
-# Note: appsettings.Production.json is excluded to preserve server-specific settings.
-# This file should be manually managed on the server and not included in the artifact.
-Get-ChildItem -Path $PhysicalPath -Exclude 'logs', 'data', 'appsettings.Production.json' | 
+# Note: appsettings.*.json files are excluded to preserve environment-specific settings.
+# These files should be manually managed on the server and not included in the artifact.
+Get-ChildItem -Path $PhysicalPath -Exclude 'logs', 'data', 'appsettings.*.json' |
 ForEach-Object {
     Remove-Item -Path $_.FullName -Recurse -Force
     Write-Host "Removed: $($_.Name)"
 }
 
-# Copy new files
-Copy-Item -Path "$sourcePath\*" -Destination $PhysicalPath -Recurse -Force
+# Copy new files while leaving environment-specific appsettings files server-managed.
+Get-ChildItem -Path $sourcePath -Exclude 'appsettings.*.json' |
+ForEach-Object {
+    Copy-Item -Path $_.FullName -Destination $PhysicalPath -Recurse -Force
+}
 Write-Host "Application files deployed successfully."
 
 exit 0

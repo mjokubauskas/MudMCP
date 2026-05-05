@@ -113,12 +113,12 @@ The server will:
 1. Clone the MudBlazor repository and checkout the matching tag (`v9.0.0`)
 2. Parse all components using Roslyn and build an index
 3. Cache the index to disk — subsequent runs load instantly
-4. Start the MCP server on `http://localhost:5180`
+4. Start the MCP server on `http://localhost:8000`
 
 ### 4. Verify
 
 ```bash
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 ```
 
 ### 5. Connect Your AI Assistant
@@ -129,7 +129,7 @@ curl http://localhost:5180/health
   "servers": {
     "mudblazor": {
       "type": "http",
-      "url": "http://localhost:5180/mcp"
+      "url": "http://localhost:8000/mcp"
     }
   }
 }
@@ -209,10 +209,10 @@ docker compose up --build -d
 docker compose logs -f
 
 # Check health
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 ```
 
-The MCP endpoint is available at `http://localhost:5180/mcp` — no changes needed to an existing `mcp.json` that already points to `:5180`.
+The MCP endpoint is available at `http://localhost:8000/mcp` — no changes needed to an existing `mcp.json` that already points to `:8000`.
 
 **Volume:** All cached data is stored under a named Docker volume (`mudblazor-data`) mounted at `/app/data`. Each MudBlazor version gets its own subdirectory (`/app/data/v{Version}/`) containing the git clone and serialized index (`index.json`). The version manifest (`versions.json`) lives at `/app/data/versions.json`. Because tagged commits are immutable, the server does not run `git fetch` on subsequent starts — it simply reuses the existing clone and loads the pre-built `index.json`.
 
@@ -230,7 +230,7 @@ docker compose down -v
   "servers": {
     "mudblazor": {
       "type": "http",
-      "url": "http://localhost:5180/mcp"
+      "url": "http://localhost:8000/mcp"
     }
   }
 }
@@ -260,8 +260,8 @@ When a 4th version is requested, the least recently used version is evicted auto
 | Mode | Command | Kestrel | Use case |
 |------|---------|---------|----------|
 | `--stdio` | `dotnet run -- --stdio --version X.Y.Z` or `.exe --stdio --version X.Y.Z` | No | Cursor, Claude Code, Claude Desktop, local clients |
-| HTTP (default) | `dotnet run -- --version X.Y.Z` | Yes (`:5180`) | VS Code HTTP, MCP Inspector, remote |
-| Docker | `docker compose up` | Yes (`:5180→8080`) | Containerised / persistent cache |
+| HTTP (default) | `dotnet run -- --version X.Y.Z` | Yes (`:8000`) | VS Code HTTP, MCP Inspector, remote |
+| Docker | `docker compose up` | Yes (`:8000→8080`) | Containerised / persistent cache |
 
 ---
 

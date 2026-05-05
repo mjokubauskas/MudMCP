@@ -19,10 +19,10 @@
     Physical path for the website.
 
 .PARAMETER Port
-    HTTP port for the website (default: 5180).
+    HTTP port for the website (default: 8000).
 
 .EXAMPLE
-    .\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 5180
+    .\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 8000
 #>
 
 [CmdletBinding()]
@@ -41,7 +41,7 @@ param(
     
     [Parameter(Mandatory=$false)]
     [ValidateRange(1, 65535)]
-    [int]$Port = 5180
+    [int]$Port = 8000
 )
 
 Set-StrictMode -Version Latest
