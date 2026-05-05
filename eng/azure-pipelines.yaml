@@ -61,6 +61,8 @@ variables:
     value: '8000'
   - name: iisBindingProtocol
     value: 'https'
+  # Optional: override this in Azure DevOps pipeline variables or a variable group.
+  # Leave empty to preserve any existing HTTPS certificate binding.
   - name: iisSslCertificateThumbprint
     value: ''
   - name: deploymentHealthMaxRetries
@@ -218,7 +220,6 @@ stages:
       physicalPath: '$(iisPhysicalPath)'
       port: '$(iisPort)'
       bindingProtocol: '$(iisBindingProtocol)'
-      sslCertificateThumbprint: '$(iisSslCertificateThumbprint)'
       mudBlazorVersion: '$(mudBlazorVersion)'
       healthMaxRetries: '$(deploymentHealthMaxRetries)'
       healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'
@@ -240,7 +241,6 @@ stages:
       physicalPath: '$(iisPhysicalPath)'
       port: '$(iisPort)'
       bindingProtocol: '$(iisBindingProtocol)'
-      sslCertificateThumbprint: '$(iisSslCertificateThumbprint)'
       mudBlazorVersion: '$(mudBlazorVersion)'
       healthMaxRetries: '$(deploymentHealthMaxRetries)'
       healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'
@@ -262,7 +262,6 @@ stages:
       physicalPath: '$(iisPhysicalPath)'
       port: '$(iisPort)'
       bindingProtocol: '$(iisBindingProtocol)'
-      sslCertificateThumbprint: '$(iisSslCertificateThumbprint)'
       mudBlazorVersion: '$(mudBlazorVersion)'
       healthMaxRetries: '$(deploymentHealthMaxRetries)'
       healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'

@@ -29,10 +29,6 @@ parameters:
     type: string
     displayName: 'IIS binding protocol'
     default: 'https'
-  - name: sslCertificateThumbprint
-    type: string
-    displayName: 'HTTPS certificate thumbprint'
-    default: ''
   - name: mudBlazorVersion
     type: string
     displayName: 'MudBlazor version to serve documentation for'
@@ -92,7 +88,9 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Configure-IisWebsite.ps1'
-      arguments: '-WebsiteName "${{ parameters.websiteName }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -Port ${{ parameters.port }} -BindingProtocol "${{ parameters.bindingProtocol }}" -SslCertificateThumbprint "${{ parameters.sslCertificateThumbprint }}"'
+      arguments: '-WebsiteName "${{ parameters.websiteName }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -Port ${{ parameters.port }} -BindingProtocol "${{ parameters.bindingProtocol }}"'
+    env:
+      IIS_SSL_CERTIFICATE_THUMBPRINT: $(iisSslCertificateThumbprint)
 
   - task: PowerShell@2
     displayName: 'Update environment settings'

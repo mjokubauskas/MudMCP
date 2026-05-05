@@ -27,7 +27,9 @@
 
 .PARAMETER SslCertificateThumbprint
     Optional certificate thumbprint to assign to the HTTPS binding. If omitted,
-    any existing HTTPS certificate binding is preserved.
+    the script falls back to the IIS_SSL_CERTIFICATE_THUMBPRINT environment
+    variable. If neither is set, any existing HTTPS certificate binding is
+    preserved.
 
 .EXAMPLE
     .\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 8000 -BindingProtocol https -SslCertificateThumbprint "ABCD1234..."
@@ -72,6 +74,10 @@ Test-IisResourceName -Name $AppPoolName -ResourceType 'app pool'
 # Validate and normalize physical path
 $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPath'
 $BindingProtocol = $BindingProtocol.ToLowerInvariant()
+
+if ([string]::IsNullOrWhiteSpace($SslCertificateThumbprint) -and -not [string]::IsNullOrWhiteSpace($env:IIS_SSL_CERTIFICATE_THUMBPRINT)) {
+    $SslCertificateThumbprint = $env:IIS_SSL_CERTIFICATE_THUMBPRINT
+}
 
 Import-Module WebAdministration -ErrorAction SilentlyContinue
 Import-Module IISAdministration -ErrorAction SilentlyContinue
