@@ -79,6 +79,12 @@ if ([string]::IsNullOrWhiteSpace($SslCertificateThumbprint) -and -not [string]::
     $SslCertificateThumbprint = $env:IIS_SSL_CERTIFICATE_THUMBPRINT
 }
 
+# If an optional Azure DevOps variable was not defined, the macro can arrive as
+# the literal string '$(variableName)'. Treat that as unset.
+if ($SslCertificateThumbprint -match '^\$\([^)]+\)$') {
+    $SslCertificateThumbprint = $null
+}
+
 Import-Module WebAdministration -ErrorAction SilentlyContinue
 Import-Module IISAdministration -ErrorAction SilentlyContinue
 

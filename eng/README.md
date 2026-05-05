@@ -152,7 +152,9 @@ Scripts can be executed manually for troubleshooting:
 | `iisPhysicalPath` | Deployment path | `C:\inetpub\wwwroot\MudBlazorMcp` |
 | `iisPort` | IIS website binding port | `8000` |
 | `iisBindingProtocol` | IIS website binding protocol | `https` |
-| `iisSslCertificateThumbprint` | Optional HTTPS certificate thumbprint from `Cert:\LocalMachine\My` | empty |
+| `iisDevSslCertificateThumbprint` | Optional development HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; define in Azure DevOps variables or variable groups | unset |
+| `iisTestSslCertificateThumbprint` | Optional test HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; define in Azure DevOps variables or variable groups | unset |
+| `iisProdSslCertificateThumbprint` | Optional production HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; define in Azure DevOps variables or variable groups | unset |
 | `deploymentHealthMaxRetries` | Health check retry count | `6` |
 | `deploymentHealthRetryDelaySeconds` | Delay between health check retries | `10` |
 | `mudBlazorVersion` | MudBlazor docs version served by the MCP server | `9.0.0` |
@@ -161,7 +163,7 @@ Scripts can be executed manually for troubleshooting:
 
 Dev, test, and production share the same IIS deployment settings from the pipeline variables above and the same deployment lifecycle from `eng/templates/deploy-iis-stage.yaml`. Only the Azure DevOps environment name and `ASPNETCORE_ENVIRONMENT` value differ by environment.
 
-The shared deployment configures an HTTPS IIS binding by default. Set `iisSslCertificateThumbprint` as an Azure DevOps pipeline variable or variable group value when the target server needs the deployment to assign a certificate to the binding. If the value is empty, the script preserves any existing certificate binding for the site and port.
+The shared deployment configures an HTTPS IIS binding by default. Set `iisDevSslCertificateThumbprint`, `iisTestSslCertificateThumbprint`, and `iisProdSslCertificateThumbprint` as Azure DevOps pipeline variables or variable group values when each target server needs the deployment to assign a certificate to the binding. They are intentionally not given YAML defaults, so values from the pipeline UI or variable groups can flow through cleanly. If an environment value is unset or empty, the script preserves any existing certificate binding for that site and port.
 
 If a server needs environment-specific application settings, create the appropriate `appsettings.{Environment}.json` file on that server. The deployment preserves server-managed `appsettings.*.json` files. For example, production can use `appsettings.Production.json`:
 
