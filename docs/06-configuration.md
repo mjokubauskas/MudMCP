@@ -419,10 +419,9 @@ services:
   mudblazor-mcp:
     build: .
     ports:
-      - "8000:8000"
+      - "8000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:8000
       - MudBlazor__Repository__LocalPath=/app/data/repo
       - Logging__LogLevel__Default=Warning
     volumes:

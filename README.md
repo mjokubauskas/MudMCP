@@ -212,7 +212,7 @@ docker compose logs -f
 curl http://localhost:8000/health
 ```
 
-The MCP endpoint is available at `http://localhost:8000/mcp` — no changes needed to an existing `mcp.json` that already points to `:8000`.
+The MCP endpoint is available at `http://localhost:8000/mcp`. If an existing MCP client config points to the previous `:5180` default, update it to `:8000`.
 
 **Volume:** All cached data is stored under a named Docker volume (`mudblazor-data`) mounted at `/app/data`. Each MudBlazor version gets its own subdirectory (`/app/data/v{Version}/`) containing the git clone and serialized index (`index.json`). The version manifest (`versions.json`) lives at `/app/data/versions.json`. Because tagged commits are immutable, the server does not run `git fetch` on subsequent starts — it simply reuses the existing clone and loads the pre-built `index.json`.
 

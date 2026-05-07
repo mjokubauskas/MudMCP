@@ -97,7 +97,7 @@ Describe 'Invoke-DeploymentHealthRequest' {
             Should -Throw '*Network failure*'
 
         $script:callbackDuringRequest | Should -Not -Be $null
-    $script:callbackDuringRequest.Method.DeclaringType.FullName | Should -Be 'MudMcp.DeploymentHealthCertificateValidator'
+        $script:callbackDuringRequest.Method.DeclaringType.FullName | Should -Be 'MudMcp.DeploymentHealthCertificateValidator'
         [System.Net.ServicePointManager]::ServerCertificateValidationCallback | Should -Be $null
         ($script:securityProtocolDuringRequest -band [System.Net.SecurityProtocolType]::Tls12) |
             Should -Be ([System.Net.SecurityProtocolType]::Tls12)
