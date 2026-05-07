@@ -63,6 +63,7 @@ $ErrorActionPreference = 'Continue'
 
 # Load shared validation functions
 . "$PSScriptRoot\Common\PathValidation.ps1"
+. "$PSScriptRoot\Common\DeploymentWebRequest.ps1"
 
 # Validate app pool name
 Test-IisResourceName -Name $AppPoolName -ResourceType 'app pool'
@@ -71,10 +72,15 @@ Test-IisResourceName -Name $AppPoolName -ResourceType 'app pool'
 $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPath'
 $Scheme = $Scheme.ToLowerInvariant()
 
-$healthUrl = "${Scheme}://localhost:$Port/health"
+$healthUri = [Uri]"${Scheme}://localhost:$Port/health"
+$skipCertificateValidation = $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
 
 Write-Host "Waiting for application to start..."
 Start-Sleep -Seconds 5
+
+if ($skipCertificateValidation) {
+    Write-Host "Using loopback HTTPS health check with local certificate validation bypass."
+}
 
 $retryCount = 0
 $lastError = $null
@@ -82,7 +88,7 @@ $lastError = $null
 while ($retryCount -lt $MaxRetries) {
     try {
         Write-Host "Health check attempt $($retryCount + 1)..."
-        $response = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 10
+        $response = Invoke-DeploymentHealthRequest -Uri $healthUri -TimeoutSec 10 -SkipCertificateValidation:$skipCertificateValidation
         
         if ($response.StatusCode -eq 200) {
             Write-Host "##vso[task.complete result=Succeeded;]Deployment verified successfully!"
