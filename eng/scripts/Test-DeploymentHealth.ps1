@@ -85,6 +85,23 @@ if ($skipCertificateValidation) {
 $retryCount = 0
 $lastError = $null
 
+function Get-ExceptionMessages {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Exception]$Exception
+    )
+
+    $messages = New-Object System.Collections.Generic.List[string]
+    $currentException = $Exception
+
+    while ($currentException) {
+        $messages.Add($currentException.Message)
+        $currentException = $currentException.InnerException
+    }
+
+    return $messages
+}
+
 while ($retryCount -lt $MaxRetries) {
     try {
         Write-Host "Health check attempt $($retryCount + 1)..."
@@ -97,7 +114,8 @@ while ($retryCount -lt $MaxRetries) {
         }
     } catch {
         $lastError = $_
-        Write-Host "Attempt failed: $($_.Exception.Message)"
+        $exceptionMessages = Get-ExceptionMessages -Exception $_.Exception
+        Write-Host "Attempt failed: $($exceptionMessages -join ' | Inner: ')"
     }
     
     $retryCount++
@@ -172,6 +190,12 @@ Write-Host ""
 Write-Host "--- Last HTTP Error Details ---"
 if ($lastError) {
     Write-Host "Exception: $($lastError.Exception.Message)"
+    $innerException = $lastError.Exception.InnerException
+    while ($innerException) {
+        Write-Host "Inner Exception: $($innerException.Message)"
+        $innerException = $innerException.InnerException
+    }
+
     if ($lastError.Exception.Response) {
         Write-Host "Status Code: $($lastError.Exception.Response.StatusCode)"
         try {

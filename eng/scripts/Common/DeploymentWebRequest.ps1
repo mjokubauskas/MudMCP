@@ -16,33 +16,43 @@ function Invoke-DeploymentHealthRequest {
         [switch]$SkipCertificateValidation
     )
 
-    if (-not $SkipCertificateValidation -or $Uri.Scheme -ne 'https' -or -not $Uri.IsLoopback) {
-        return Invoke-WebRequest -Uri $Uri -UseBasicParsing -TimeoutSec $TimeoutSec
-    }
-
+    $useCertificateValidationBypass = $SkipCertificateValidation -and $Uri.Scheme -eq 'https' -and $Uri.IsLoopback
+    $previousSecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol
     $previousCertificateValidationCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
     $targetUri = $Uri
 
     try {
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {
-            param($sender, $certificate, $chain, $sslPolicyErrors)
+        if ($Uri.Scheme -eq 'https') {
+            [System.Net.ServicePointManager]::SecurityProtocol = $previousSecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+        }
 
-            if ($sender -is [System.Net.HttpWebRequest] -and
-                $sender.RequestUri.Scheme -eq $targetUri.Scheme -and
-                $sender.RequestUri.Authority -eq $targetUri.Authority -and
-                $sender.RequestUri.IsLoopback) {
-                return $true
+        if ($useCertificateValidationBypass) {
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {
+                param($sender, $certificate, $chain, $sslPolicyErrors)
+
+                if ($sender -is [System.Net.HttpWebRequest] -and
+                    $sender.RequestUri.Scheme -eq $targetUri.Scheme -and
+                    $sender.RequestUri.Authority -eq $targetUri.Authority -and
+                    $sender.RequestUri.IsLoopback) {
+                    return $true
+                }
+
+                if ($previousCertificateValidationCallback) {
+                    return $previousCertificateValidationCallback.Invoke($sender, $certificate, $chain, $sslPolicyErrors)
+                }
+
+                return $sslPolicyErrors -eq [System.Net.Security.SslPolicyErrors]::None
             }
-
-            if ($previousCertificateValidationCallback) {
-                return $previousCertificateValidationCallback.Invoke($sender, $certificate, $chain, $sslPolicyErrors)
-            }
-
-            return $sslPolicyErrors -eq [System.Net.Security.SslPolicyErrors]::None
         }
 
         return Invoke-WebRequest -Uri $Uri -UseBasicParsing -TimeoutSec $TimeoutSec
     } finally {
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $previousCertificateValidationCallback
+        if ($useCertificateValidationBypass) {
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $previousCertificateValidationCallback
+        }
+
+        if ($Uri.Scheme -eq 'https') {
+            [System.Net.ServicePointManager]::SecurityProtocol = $previousSecurityProtocol
+        }
     }
 }
