@@ -95,7 +95,7 @@ if ($mainDll -and $mainDll.DirectoryName) {
 Write-Host "Deploying from: $sourcePath"
 Write-Host "Deploying to: $PhysicalPath"
 
-$environmentAppSettingsPattern = '^appsettings\.[a-zA-Z0-9_-]+\.json$'
+$envAppSettingsPattern = '^appsettings\.[a-zA-Z0-9_-]+\.json$'
 
 function Test-EnvironmentSpecificAppSettingsFile {
     param(
@@ -103,7 +103,7 @@ function Test-EnvironmentSpecificAppSettingsFile {
         [System.IO.FileSystemInfo]$Item
     )
 
-    return -not $Item.PSIsContainer -and $Item.Name -match $environmentAppSettingsPattern
+    return -not $Item.PSIsContainer -and $Item.Name -match $envAppSettingsPattern
 }
 
 # Ensure destination directory exists

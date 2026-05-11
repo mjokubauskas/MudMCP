@@ -79,12 +79,12 @@ $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPa
 $Scheme = $Scheme.ToLowerInvariant()
 
 $healthUri = [Uri]"${Scheme}://localhost:$Port/health"
-$skipCertValidation = $SkipCertificateValidation -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
+$skipCertificateValidation = $SkipCertificateValidation -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
 
 Write-Host "Waiting for application to start..."
 Start-Sleep -Seconds 5
 
-if ($skipCertValidation) {
+if ($skipCertificateValidation) {
     Write-Host "Using loopback HTTPS health check with local certificate validation bypass."
 }
 
@@ -111,7 +111,7 @@ function Get-ExceptionMessages {
 while ($retryCount -lt $MaxRetries) {
     try {
         Write-Host "Health check attempt $($retryCount + 1)..."
-        $response = Invoke-DeploymentHealthRequest -Uri $healthUri -TimeoutSec 10 -SkipCertificateValidation:$skipCertValidation
+        $response = Invoke-DeploymentHealthRequest -Uri $healthUri -TimeoutSec 10 -SkipCertificateValidation:$skipCertificateValidation
         
         if ($response.StatusCode -eq 200) {
             Write-Host "##vso[task.complete result=Succeeded;]Deployment verified successfully!"
