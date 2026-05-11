@@ -28,7 +28,7 @@
     Delay between retries in seconds (default: 10).
 
 .PARAMETER SkipCertificateValidation
-    Skip HTTPS certificate validation for loopback health checks. Use only for explicit dev/test scenarios.
+    Set to true to skip HTTPS certificate validation for loopback health checks. Use only for explicit dev/test scenarios.
 
 .EXAMPLE
     .\Test-DeploymentHealth.ps1 -Port 8000 -Scheme https -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
@@ -61,7 +61,8 @@ param(
     [int]$RetryDelaySeconds = 10,
 
     [Parameter(Mandatory=$false)]
-    [bool]$SkipCertificateValidation = $false
+    [ValidateSet('true', 'false', 'True', 'False')]
+    [string]$SkipCertificateValidation = 'false'
 )
 
 Set-StrictMode -Version Latest
@@ -79,7 +80,8 @@ $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPa
 $Scheme = $Scheme.ToLowerInvariant()
 
 $healthUri = [Uri]"${Scheme}://localhost:$Port/health"
-$skipCertificateValidationForRequest = $SkipCertificateValidation -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
+$skipCertificateValidationEnabled = [System.Convert]::ToBoolean($SkipCertificateValidation)
+$skipCertificateValidationForRequest = $skipCertificateValidationEnabled -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
 
 Write-Host "Waiting for application to start..."
 Start-Sleep -Seconds 5
