@@ -49,7 +49,7 @@ parameters:
     type: string
     displayName: 'Health check retry delay in seconds'
     default: '10'
-  - name: healthSkipCertificateValidation
+  - name: healthSkipCertValidation
     type: string
     displayName: 'Skip HTTPS certificate validation for loopback health checks'
     default: '$false'
@@ -129,4 +129,4 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Test-DeploymentHealth.ps1'
-      arguments: '-Port ${{ parameters.port }} -Scheme "${{ parameters.healthScheme }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries ${{ parameters.healthMaxRetries }} -RetryDelaySeconds ${{ parameters.healthRetryDelaySeconds }} -SkipCertificateValidation ${{ parameters.healthSkipCertificateValidation }}'
+      arguments: '-Port ${{ parameters.port }} -Scheme "${{ parameters.healthScheme }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries ${{ parameters.healthMaxRetries }} -RetryDelaySeconds ${{ parameters.healthRetryDelaySeconds }} -SkipCertificateValidation ${{ parameters.healthSkipCertValidation }}'
