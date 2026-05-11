@@ -61,9 +61,10 @@ variables:
     value: '8000'
   - name: iisBindingProtocol
     value: 'https'
-  # Optional certificate variables are supplied from Azure DevOps pipeline
-  # variables or variable groups: iisDevSslCertificateThumbprint,
-  # iisTestSslCertificateThumbprint, iisProdSslCertificateThumbprint.
+  # Optional variables are supplied from Azure DevOps pipeline variables or
+  # variable groups (not stored in source control):
+  #   iisDevSslCertificateThumbprint, iisTestSslCertificateThumbprint, iisProdSslCertificateThumbprint
+  #   iisDevHealthHostName, iisTestHealthHostName, iisProdHealthHostName
   - name: deploymentHealthMaxRetries
     value: '6'
   - name: deploymentHealthRetryDelaySeconds
@@ -221,6 +222,7 @@ stages:
       bindingProtocol: '$(iisBindingProtocol)'
       sslCertificateThumbprint: '$(iisDevSslCertificateThumbprint)'
       mudBlazorVersion: '$(mudBlazorVersion)'
+      healthHostName: '$(iisDevHealthHostName)'
       healthMaxRetries: '$(deploymentHealthMaxRetries)'
       healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'
 
@@ -243,6 +245,7 @@ stages:
       bindingProtocol: '$(iisBindingProtocol)'
       sslCertificateThumbprint: '$(iisTestSslCertificateThumbprint)'
       mudBlazorVersion: '$(mudBlazorVersion)'
+      healthHostName: '$(iisTestHealthHostName)'
       healthMaxRetries: '$(deploymentHealthMaxRetries)'
       healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'
 
@@ -265,5 +268,6 @@ stages:
       bindingProtocol: '$(iisBindingProtocol)'
       sslCertificateThumbprint: '$(iisProdSslCertificateThumbprint)'
       mudBlazorVersion: '$(mudBlazorVersion)'
+      healthHostName: '$(iisProdHealthHostName)'
       healthMaxRetries: '$(deploymentHealthMaxRetries)'
       healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'

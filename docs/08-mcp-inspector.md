@@ -112,7 +112,7 @@ Or from the solution root:
 ```bash
 npx @modelcontextprotocol/inspector \
   --command "dotnet" \
-  --args "run --project c:/Mapei/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp -- --stdio"
+  --args "run --project c:/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp -- --stdio"
 ```
 
 ### For HTTP Transport

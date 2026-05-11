@@ -51,6 +51,9 @@ parameters:
   - name: healthRetryDelaySeconds
     type: string
     default: '10'
+  - name: healthHostName
+    type: string
+    default: 'localhost'
   - name: healthSkipCertValidation
     type: string
     default: '$false'
@@ -92,6 +95,7 @@ stages:
                     sslCertificateThumbprint: ${{ parameters.sslCertificateThumbprint }}
                     mudBlazorVersion: ${{ parameters.mudBlazorVersion }}
                     healthScheme: ${{ parameters.bindingProtocol }}
+                    healthHostName: ${{ parameters.healthHostName }}
                     healthMaxRetries: ${{ parameters.healthMaxRetries }}
                     healthRetryDelaySeconds: ${{ parameters.healthRetryDelaySeconds }}
                     healthSkipCertValidation: ${{ parameters.healthSkipCertValidation }}

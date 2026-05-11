@@ -45,6 +45,10 @@ parameters:
     type: string
     displayName: 'Health check URI scheme'
     default: 'https'
+  - name: healthHostName
+    type: string
+    displayName: 'Health check host name'
+    default: 'localhost'
   - name: healthRetryDelaySeconds
     type: string
     displayName: 'Health check retry delay in seconds'
@@ -129,4 +133,4 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Test-DeploymentHealth.ps1'
-      arguments: '-Port ${{ parameters.port }} -Scheme "${{ parameters.healthScheme }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries ${{ parameters.healthMaxRetries }} -RetryDelaySeconds ${{ parameters.healthRetryDelaySeconds }} -SkipCertificateValidation ${{ parameters.healthSkipCertValidation }}'
+      arguments: '-HostName "${{ parameters.healthHostName }}" -Port ${{ parameters.port }} -Scheme "${{ parameters.healthScheme }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries ${{ parameters.healthMaxRetries }} -RetryDelaySeconds ${{ parameters.healthRetryDelaySeconds }} -SkipCertificateValidation ${{ parameters.healthSkipCertValidation }}'

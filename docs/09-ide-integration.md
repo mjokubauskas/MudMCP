@@ -49,7 +49,7 @@ Mud MCP supports two transport mechanisms:
       "args": [
         "run",
         "--project",
-        "C:/Mapei/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp",
+        "C:/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp",
         "--",
         "--stdio"
       ]
@@ -93,7 +93,7 @@ dotnet publish -c Release -o ./publish
 {
   "github.copilot.chat.experimental.mcpServers": {
     "mudblazor-mcp": {
-      "command": "C:/Mapei/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp/publish/MudBlazor.Mcp.exe",
+      "command": "C:/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp/publish/MudBlazor.Mcp.exe",
       "args": ["--stdio"]
     }
   }
@@ -158,7 +158,7 @@ Create or edit `claude_desktop_config.json`:
       "args": [
         "run",
         "--project",
-        "C:\\Mapei\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp",
+        "C:\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp",
         "--",
         "--stdio"
       ],
@@ -198,7 +198,7 @@ Create or edit `claude_desktop_config.json`:
 {
   "mcpServers": {
     "mudblazor-mcp": {
-      "command": "C:\\Mapei\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp\\publish\\MudBlazor.Mcp.exe",
+      "command": "C:\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp\\publish\\MudBlazor.Mcp.exe",
       "args": ["--stdio"],
       "env": {
         "DOTNET_ENVIRONMENT": "Production"
@@ -234,7 +234,7 @@ Edit `~/.continue/config.json`:
           "args": [
             "run",
             "--project",
-            "C:/Mapei/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp",
+            "C:/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp",
             "--",
             "--stdio"
           ]
@@ -372,7 +372,7 @@ Set the working directory for the server:
     "mudblazor-mcp": {
       "command": "dotnet",
       "args": ["run", "--", "--stdio"],
-      "cwd": "C:\\Mapei\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp"
+      "cwd": "C:\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp"
     }
   }
 }

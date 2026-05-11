@@ -15,6 +15,9 @@
 .PARAMETER Scheme
     URI scheme for the health check (default: https).
 
+.PARAMETER HostName
+    Host name for the health check (default: localhost).
+
 .PARAMETER AppPoolName
     Name of the IIS application pool (for diagnostics).
 
@@ -31,7 +34,7 @@
     Set to true to skip HTTPS certificate validation for loopback health checks. Use only for explicit dev/test scenarios.
 
 .EXAMPLE
-    .\Test-DeploymentHealth.ps1 -Port 8000 -Scheme https -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
+    .\Test-DeploymentHealth.ps1 -HostName "dev.mudmcp.org" -Port 8000 -Scheme https -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 #>
 
 [CmdletBinding()]
@@ -43,6 +46,9 @@ param(
     [Parameter(Mandatory=$false)]
     [ValidateSet('http', 'https')]
     [string]$Scheme = 'https',
+
+    [Parameter(Mandatory=$false)]
+    [string]$HostName = 'localhost',
     
     [Parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -78,11 +84,24 @@ Test-IisResourceName -Name $AppPoolName -ResourceType 'app pool'
 $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPath'
 $Scheme = $Scheme.ToLowerInvariant()
 
-$healthUri = [Uri]"${Scheme}://localhost:$Port/health"
+if ($HostName -match '^\$\([^)]+\)$' -or [string]::IsNullOrWhiteSpace($HostName)) {
+    $HostName = 'localhost'
+}
+
+$HostName = $HostName.Trim()
+
+if ($HostName.Contains('://') -or $HostName.Contains('/') -or $HostName.Contains('\') -or $HostName.Contains('?') -or $HostName.Contains('#')) {
+    throw "HostName must be a DNS name or IP address without scheme, path, query, or fragment."
+}
+
+$uriBuilder = New-Object System.UriBuilder -ArgumentList $Scheme, $HostName, $Port, 'health'
+$healthUri = $uriBuilder.Uri
 $skipCertificateValidation = $SkipCertificateValidation -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
 
 Write-Host "Waiting for application to start..."
 Start-Sleep -Seconds 5
+
+Write-Host "Health check URI: $healthUri"
 
 if ($skipCertificateValidation) {
     Write-Host "Using loopback HTTPS health check with local certificate validation bypass."
