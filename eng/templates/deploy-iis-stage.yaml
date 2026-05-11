@@ -52,8 +52,11 @@ parameters:
     type: string
     default: '10'
   - name: healthSkipCertificateValidation
-    type: boolean
-    default: false
+    type: string
+    default: '$false'
+    values:
+      - '$false'
+      - '$true'
 
 stages:
   - stage: ${{ parameters.stageName }}

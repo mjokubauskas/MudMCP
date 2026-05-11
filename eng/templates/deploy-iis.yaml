@@ -50,9 +50,12 @@ parameters:
     displayName: 'Health check retry delay in seconds'
     default: '10'
   - name: healthSkipCertificateValidation
-    type: boolean
+    type: string
     displayName: 'Skip HTTPS certificate validation for loopback health checks'
-    default: false
+    default: '$false'
+    values:
+      - '$false'
+      - '$true'
 
 steps:
   # Checkout source to get deployment scripts

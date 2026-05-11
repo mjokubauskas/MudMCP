@@ -61,8 +61,7 @@ param(
     [int]$RetryDelaySeconds = 10,
 
     [Parameter(Mandatory=$false)]
-    [ValidateSet('true', 'false', 'True', 'False')]
-    [string]$SkipCertificateValidation = 'false'
+    [bool]$SkipCertificateValidation = $false
 )
 
 Set-StrictMode -Version Latest
@@ -80,8 +79,7 @@ $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPa
 $Scheme = $Scheme.ToLowerInvariant()
 
 $healthUri = [Uri]"${Scheme}://localhost:$Port/health"
-$skipCertificateValidationEnabled = [System.Convert]::ToBoolean($SkipCertificateValidation)
-$skipCertificateValidationForRequest = $skipCertificateValidationEnabled -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
+$skipCertificateValidationForRequest = $SkipCertificateValidation -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
 
 Write-Host "Waiting for application to start..."
 Start-Sleep -Seconds 5

@@ -101,7 +101,7 @@ function Test-EnvironmentSpecificAppSettingsFile {
         [System.IO.FileSystemInfo]$Item
     )
 
-    return -not $Item.PSIsContainer -and $Item.Name -match '^appsettings\..+\.json$'
+    return -not $Item.PSIsContainer -and $Item.Name -match '^appsettings\.[a-zA-Z0-9_-]+\.json$'
 }
 
 # Ensure destination directory exists
