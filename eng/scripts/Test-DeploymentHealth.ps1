@@ -94,6 +94,25 @@ if ($HostName.Contains('://') -or $HostName.Contains('/') -or $HostName.Contains
     throw "HostName must be a DNS name or IP address without scheme, path, query, or fragment."
 }
 
+$normalizedHostName = $HostName
+if ($normalizedHostName.StartsWith('[') -and $normalizedHostName.EndsWith(']')) {
+    $normalizedHostName = $normalizedHostName.Substring(1, $normalizedHostName.Length - 2)
+}
+
+$parsedIpAddress = $null
+$isIpAddress = [System.Net.IPAddress]::TryParse($normalizedHostName, [ref]$parsedIpAddress)
+
+if ($HostName.Contains(':') -and -not $isIpAddress) {
+    throw "HostName must not include a port. Provide only a DNS name or IP address and use the Port parameter for the port number."
+}
+
+$hostNameType = [System.Uri]::CheckHostName($normalizedHostName)
+if (-not $isIpAddress -and $hostNameType -eq [System.UriHostNameType]::Unknown) {
+    throw "HostName must be a valid DNS name or IP address."
+}
+
+$HostName = $normalizedHostName
+
 $uriBuilder = New-Object System.UriBuilder -ArgumentList $Scheme, $HostName, $Port, 'health'
 $healthUri = $uriBuilder.Uri
 $skipCertificateValidation = $SkipCertificateValidation -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
