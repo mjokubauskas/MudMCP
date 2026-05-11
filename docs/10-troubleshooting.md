@@ -237,7 +237,7 @@ Component index is not ready. The server may still be initializing.
    ```
 3. **Check health endpoint:**
    ```bash
-  curl http://localhost:8000/health
+   curl http://localhost:8000/health
    ```
 
 ### Issue: "No components found"

@@ -125,7 +125,7 @@ npx @modelcontextprotocol/inspector \
 
 2. In another terminal, start inspector:
    ```bash
-  npx @modelcontextprotocol/inspector --url http://localhost:8000/mcp
+   npx @modelcontextprotocol/inspector --url http://localhost:8000/mcp
    ```
 
 ### Inspector Interface

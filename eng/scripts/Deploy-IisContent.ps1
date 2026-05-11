@@ -115,7 +115,7 @@ if (-not (Test-Path $PhysicalPath)) {
 # Clear existing files (except logs, data, and server-managed config)
 # Note: appsettings.{Environment}.json files are excluded to preserve environment-specific settings.
 # These files should be manually managed on the server and not included in the artifact.
-Get-ChildItem -Path $PhysicalPath |
+Get-ChildItem -Path $PhysicalPath -Force |
 Where-Object { $_.Name -notin @('logs', 'data') -and -not (Test-EnvironmentSpecificAppSettingsFile -Item $_) } |
 ForEach-Object {
     Remove-Item -Path $_.FullName -Recurse -Force
@@ -123,7 +123,7 @@ ForEach-Object {
 }
 
 # Copy new files while leaving environment-specific appsettings files server-managed.
-Get-ChildItem -Path $sourcePath |
+Get-ChildItem -Path $sourcePath -Force |
 Where-Object { -not (Test-EnvironmentSpecificAppSettingsFile -Item $_) } |
 ForEach-Object {
     Copy-Item -Path $_.FullName -Destination $PhysicalPath -Recurse -Force
