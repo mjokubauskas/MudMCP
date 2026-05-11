@@ -44,7 +44,7 @@ parameters:
   - name: healthScheme
     type: string
     displayName: 'Health check URI scheme'
-    default: ${{ parameters.bindingProtocol }}
+    default: 'https'
   - name: healthRetryDelaySeconds
     type: string
     displayName: 'Health check retry delay in seconds'
