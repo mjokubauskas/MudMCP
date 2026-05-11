@@ -95,6 +95,15 @@ if ($mainDll -and $mainDll.DirectoryName) {
 Write-Host "Deploying from: $sourcePath"
 Write-Host "Deploying to: $PhysicalPath"
 
+function Test-EnvironmentSpecificAppSettingsFile {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.IO.FileSystemInfo]$Item
+    )
+
+    return -not $Item.PSIsContainer -and $Item.Name -match '^appsettings\..+\.json$'
+}
+
 # Ensure destination directory exists
 if (-not (Test-Path $PhysicalPath)) {
     New-Item -ItemType Directory -Path $PhysicalPath -Force | Out-Null
@@ -102,16 +111,18 @@ if (-not (Test-Path $PhysicalPath)) {
 }
 
 # Clear existing files (except logs, data, and server-managed config)
-# Note: appsettings.*.json files are excluded to preserve environment-specific settings.
+# Note: appsettings.{Environment}.json files are excluded to preserve environment-specific settings.
 # These files should be manually managed on the server and not included in the artifact.
-Get-ChildItem -Path $PhysicalPath -Exclude 'logs', 'data', 'appsettings.*.json' |
+Get-ChildItem -Path $PhysicalPath |
+Where-Object { $_.Name -notin @('logs', 'data') -and -not (Test-EnvironmentSpecificAppSettingsFile -Item $_) } |
 ForEach-Object {
     Remove-Item -Path $_.FullName -Recurse -Force
     Write-Host "Removed: $($_.Name)"
 }
 
 # Copy new files while leaving environment-specific appsettings files server-managed.
-Get-ChildItem -Path $sourcePath -Exclude 'appsettings.*.json' |
+Get-ChildItem -Path $sourcePath |
+Where-Object { -not (Test-EnvironmentSpecificAppSettingsFile -Item $_) } |
 ForEach-Object {
     Copy-Item -Path $_.FullName -Destination $PhysicalPath -Recurse -Force
 }

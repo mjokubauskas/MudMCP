@@ -27,6 +27,9 @@
 .PARAMETER RetryDelaySeconds
     Delay between retries in seconds (default: 10).
 
+.PARAMETER SkipCertificateValidation
+    Skip HTTPS certificate validation for loopback health checks. Use only for explicit dev/test scenarios.
+
 .EXAMPLE
     .\Test-DeploymentHealth.ps1 -Port 8000 -Scheme https -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 #>
@@ -55,7 +58,10 @@ param(
     
     [Parameter(Mandatory=$false)]
     [ValidateRange(1, 60)]
-    [int]$RetryDelaySeconds = 10
+    [int]$RetryDelaySeconds = 10,
+
+    [Parameter(Mandatory=$false)]
+    [bool]$SkipCertificateValidation = $false
 )
 
 Set-StrictMode -Version Latest
@@ -73,12 +79,12 @@ $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPa
 $Scheme = $Scheme.ToLowerInvariant()
 
 $healthUri = [Uri]"${Scheme}://localhost:$Port/health"
-$skipCertificateValidation = $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
+$skipCertificateValidationForRequest = $SkipCertificateValidation -and $healthUri.Scheme -eq 'https' -and $healthUri.IsLoopback
 
 Write-Host "Waiting for application to start..."
 Start-Sleep -Seconds 5
 
-if ($skipCertificateValidation) {
+if ($skipCertificateValidationForRequest) {
     Write-Host "Using loopback HTTPS health check with local certificate validation bypass."
 }
 
@@ -105,7 +111,7 @@ function Get-ExceptionMessages {
 while ($retryCount -lt $MaxRetries) {
     try {
         Write-Host "Health check attempt $($retryCount + 1)..."
-        $response = Invoke-DeploymentHealthRequest -Uri $healthUri -TimeoutSec 10 -SkipCertificateValidation:$skipCertificateValidation
+        $response = Invoke-DeploymentHealthRequest -Uri $healthUri -TimeoutSec 10 -SkipCertificateValidation:$skipCertificateValidationForRequest
         
         if ($response.StatusCode -eq 200) {
             Write-Host "##vso[task.complete result=Succeeded;]Deployment verified successfully!"

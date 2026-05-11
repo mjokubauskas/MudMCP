@@ -51,6 +51,9 @@ parameters:
   - name: healthRetryDelaySeconds
     type: string
     default: '10'
+  - name: healthSkipCertificateValidation
+    type: boolean
+    default: false
 
 stages:
   - stage: ${{ parameters.stageName }}
@@ -88,6 +91,7 @@ stages:
                     healthScheme: ${{ parameters.bindingProtocol }}
                     healthMaxRetries: ${{ parameters.healthMaxRetries }}
                     healthRetryDelaySeconds: ${{ parameters.healthRetryDelaySeconds }}
+                    healthSkipCertificateValidation: ${{ parameters.healthSkipCertificateValidation }}
             routeTraffic:
               steps:
                 - script: echo "Routing traffic to ${{ parameters.environmentDisplayName }} deployment..."
