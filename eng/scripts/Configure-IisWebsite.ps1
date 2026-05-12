@@ -89,6 +89,13 @@ Import-Module WebAdministration -ErrorAction SilentlyContinue
 Import-Module IISAdministration -ErrorAction SilentlyContinue
 
 function Test-HttpsBindingHasCertificate {
+    <#
+    .SYNOPSIS
+        Checks whether an IIS HTTPS binding already has a certificate hash.
+
+    .PARAMETER Binding
+        IIS binding object returned by Get-WebBinding.
+    #>
     param(
         [Parameter(Mandatory=$true)]
         $Binding
@@ -118,7 +125,7 @@ $existingDesiredBinding = Get-WebBinding -Name $WebsiteName -Protocol $BindingPr
 
 if ($BindingProtocol -eq 'https' -and [string]::IsNullOrWhiteSpace($SslCertificateThumbprint)) {
     if (-not $existingDesiredBinding -or -not (Test-HttpsBindingHasCertificate -Binding $existingDesiredBinding)) {
-        throw "HTTPS binding for '$WebsiteName' on port $Port requires -SslCertificateThumbprint or an existing HTTPS binding with a certificate. To deploy without a certificate, set -BindingProtocol http."
+        throw "HTTPS binding for '$WebsiteName' on port $Port requires a value for the SslCertificateThumbprint parameter or an existing HTTPS binding with a certificate. To deploy without a certificate, set BindingProtocol to http."
     }
 }
 
