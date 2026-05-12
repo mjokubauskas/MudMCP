@@ -23,6 +23,8 @@ Mud MCP supports two transport mechanisms:
 | **stdio** | Local CLI clients (recommended) | stdin/stdout |
 | **HTTP** | Web-based clients, remote access | `http://localhost:8000/mcp` |
 
+The HTTP URL shown here is the local `dotnet run` default. IIS deployments use the protocol resolved during deployment: `auto` selects HTTPS when a certificate thumbprint or existing HTTPS IIS binding is available, and otherwise uses HTTP.
+
 ---
 
 ## VS Code with GitHub Copilot

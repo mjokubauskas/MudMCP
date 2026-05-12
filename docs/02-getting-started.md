@@ -103,6 +103,8 @@ dotnet run
 2. Component index is built (~10-30 seconds)
 3. Server starts on `http://localhost:8000`
 
+Local `dotnet run`, Aspire, and Docker examples use HTTP by default. IIS deployment is configured separately: its default `auto` mode uses HTTPS when a certificate thumbprint or existing HTTPS IIS binding is available, and otherwise falls back to HTTP.
+
 **Console output:**
 ```
 info: MudBlazor.Mcp[0]

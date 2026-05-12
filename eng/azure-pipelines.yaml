@@ -60,9 +60,12 @@ variables:
   - name: iisPort
     value: '8000'
   - name: iisBindingProtocol
-    value: 'https'
+    value: 'auto'
   # Optional variables are supplied from Azure DevOps pipeline variables or
   # variable groups (not stored in source control):
+  #   iisBindingProtocol accepts auto, http, or https. Auto uses HTTPS when a
+  #   per-environment thumbprint is supplied or an existing HTTPS binding on the
+  #   deployment port already has a certificate; otherwise it falls back to HTTP.
   #   iisDevSslCertificateThumbprint, iisTestSslCertificateThumbprint, iisProdSslCertificateThumbprint
   #   iisDevHealthHostName, iisTestHealthHostName, iisProdHealthHostName
   - name: deploymentHealthMaxRetries

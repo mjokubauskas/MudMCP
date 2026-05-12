@@ -95,6 +95,8 @@ dotnet run
 
 Server runs at `http://localhost:8000/mcp`
 
+These Inspector examples use the local HTTP transport. For IIS deployments, use an HTTPS URL only when the configure step resolved the IIS binding protocol to `https`; otherwise use the HTTP endpoint reported for that deployment.
+
 ---
 
 ## Connecting MCP Inspector
@@ -420,7 +422,7 @@ dotnet run -- --stdio 2>&1 | Tee-Object -FilePath server.log
 Before testing, verify server health:
 
 ```bash
-# HTTP transport only
+# Local HTTP transport
 curl http://localhost:8000/health
 ```
 

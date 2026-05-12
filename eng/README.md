@@ -132,10 +132,10 @@ Scripts can be executed manually for troubleshooting:
 # Create backup
 .\eng\scripts\Backup-Deployment.ps1 -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 
-# Configure HTTPS binding
-.\eng\scripts\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 8000 -BindingProtocol https -SslCertificateThumbprint "ABCD1234..."
+# Configure IIS binding. Auto selects HTTPS when a thumbprint or existing HTTPS certificate is available; otherwise HTTP.
+.\eng\scripts\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 8000 -BindingProtocol auto -SslCertificateThumbprint "ABCD1234..."
 
-# Test health
+# Test health with the protocol reported by Configure-IisWebsite.ps1
 .\eng\scripts\Test-DeploymentHealth.ps1 -Port 8000 -Scheme https -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp"
 ```
 
@@ -151,10 +151,10 @@ Scripts can be executed manually for troubleshooting:
 | `iisAppPoolName` | IIS app pool name | `MudBlazorMcpPool` |
 | `iisPhysicalPath` | Deployment path | `C:\inetpub\wwwroot\MudBlazorMcp` |
 | `iisPort` | IIS website binding port | `8000` |
-| `iisBindingProtocol` | IIS website binding protocol | `https` |
-| `iisDevSslCertificateThumbprint` | Development HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; required for new HTTPS bindings unless the binding already has a certificate | unset |
-| `iisTestSslCertificateThumbprint` | Test HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; required for new HTTPS bindings unless the binding already has a certificate | unset |
-| `iisProdSslCertificateThumbprint` | Production HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; required for new HTTPS bindings unless the binding already has a certificate | unset |
+| `iisBindingProtocol` | IIS website binding protocol (`auto`, `http`, or `https`) | `auto` |
+| `iisDevSslCertificateThumbprint` | Development HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; enables HTTPS in auto mode | unset |
+| `iisTestSslCertificateThumbprint` | Test HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; enables HTTPS in auto mode | unset |
+| `iisProdSslCertificateThumbprint` | Production HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; enables HTTPS in auto mode | unset |
 | `deploymentHealthMaxRetries` | Health check retry count | `6` |
 | `deploymentHealthRetryDelaySeconds` | Delay between health check retries | `10` |
 | `mudBlazorVersion` | MudBlazor docs version served by the MCP server | `9.0.0` |
@@ -163,10 +163,12 @@ Scripts can be executed manually for troubleshooting:
 
 Dev, test, and production share the same IIS deployment settings from the pipeline variables above and the same deployment lifecycle from `eng/templates/deploy-iis-stage.yaml`. Only the Azure DevOps environment name and `ASPNETCORE_ENVIRONMENT` value differ by environment.
 
-The shared deployment configures an HTTPS IIS binding by default. For each target server, either provide a certificate thumbprint or choose HTTP explicitly:
+The shared deployment uses `auto` protocol selection by default. In auto mode, the IIS script selects HTTPS when a per-environment certificate thumbprint is supplied or when the target site already has an HTTPS binding on the deployment port with a certificate. If neither is true, it falls back to HTTP. The configure step publishes `iisEffectiveBindingProtocol`, and the health check uses that resolved protocol.
 
-- **Use HTTPS:** install a certificate in `Cert:\LocalMachine\My`, then set `iisDevSslCertificateThumbprint`, `iisTestSslCertificateThumbprint`, or `iisProdSslCertificateThumbprint` as Azure DevOps pipeline variables or variable group values. If a thumbprint is unset, the script only succeeds when the target site already has an HTTPS binding on the deployment port with a certificate.
-- **Use HTTP:** set `iisBindingProtocol` to `http`. No certificate thumbprint is required.
+- **Recommended HTTPS:** install a certificate in `Cert:\LocalMachine\My`, then set `iisDevSslCertificateThumbprint`, `iisTestSslCertificateThumbprint`, or `iisProdSslCertificateThumbprint` as Azure DevOps pipeline variables or variable group values.
+- **HTTP fallback:** leave the thumbprint unset and use the default `auto` mode when an environment does not have a certificate yet.
+- **Force HTTP:** set `iisBindingProtocol` to `http`.
+- **Force HTTPS:** set `iisBindingProtocol` to `https`; this requires a supplied thumbprint or an existing HTTPS binding with a certificate.
 
 For development or test servers, you can create and trust a self-signed certificate. Replace `localhost` with the DNS name clients and health checks will use if it is different:
 

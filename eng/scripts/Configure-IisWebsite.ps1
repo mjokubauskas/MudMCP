@@ -7,7 +7,7 @@
 
 .DESCRIPTION
     Creates or updates an IIS website and application pool with the specified settings.
-    Configures the app pool for ASP.NET Core hosting and ensures the requested
+    Configures the app pool for ASP.NET Core hosting and ensures the effective
     IIS binding protocol is configured for the deployment port.
 
 .PARAMETER WebsiteName
@@ -23,16 +23,18 @@
     Port for the website binding (default: 8000).
 
 .PARAMETER BindingProtocol
-    IIS binding protocol for the website (default: https).
+    IIS binding protocol for the website (default: auto). Auto selects HTTPS
+    when a certificate thumbprint is supplied or an existing HTTPS binding on
+    the deployment port already has a certificate; otherwise it selects HTTP.
 
 .PARAMETER SslCertificateThumbprint
     Optional certificate thumbprint to assign to the HTTPS binding. If omitted,
     the script falls back to the IIS_SSL_CERTIFICATE_THUMBPRINT environment
-    variable. If neither is set, an existing HTTPS certificate binding must
-    already exist for the site and port.
+    variable. If neither is set, auto mode falls back to HTTP unless an existing
+    HTTPS binding already has a certificate.
 
 .EXAMPLE
-    .\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 8000 -BindingProtocol https -SslCertificateThumbprint "ABCD1234..."
+    .\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 8000 -BindingProtocol auto -SslCertificateThumbprint "ABCD1234..."
 #>
 
 [CmdletBinding()]
@@ -54,8 +56,8 @@ param(
     [int]$Port = 8000,
 
     [Parameter(Mandatory=$false)]
-    [ValidateSet('http', 'https')]
-    [string]$BindingProtocol = 'https',
+    [ValidateSet('auto', 'http', 'https')]
+    [string]$BindingProtocol = 'auto',
 
     [Parameter(Mandatory=$false)]
     [string]$SslCertificateThumbprint
@@ -66,6 +68,7 @@ $ErrorActionPreference = 'Stop'
 
 # Load shared validation functions
 . "$PSScriptRoot\Common\PathValidation.ps1"
+. "$PSScriptRoot\Common\IisBindingProtocol.ps1"
 
 # Validate names
 Test-IisResourceName -Name $WebsiteName -ResourceType 'website'
@@ -74,64 +77,27 @@ Test-IisResourceName -Name $AppPoolName -ResourceType 'app pool'
 # Validate and normalize physical path
 $PhysicalPath = Get-ValidatedPath -Path $PhysicalPath -ParameterName 'PhysicalPath'
 $BindingProtocol = $BindingProtocol.ToLowerInvariant()
-
-if ([string]::IsNullOrWhiteSpace($SslCertificateThumbprint) -and -not [string]::IsNullOrWhiteSpace($env:IIS_SSL_CERTIFICATE_THUMBPRINT)) {
-    $SslCertificateThumbprint = $env:IIS_SSL_CERTIFICATE_THUMBPRINT
-}
-
-# If an optional Azure DevOps variable was not defined, the macro can arrive as
-# the literal string '$(variableName)'. Treat that as unset.
-if ($SslCertificateThumbprint -match '^\$\([^)]+\)$') {
-    $SslCertificateThumbprint = $null
-}
+$normalizedThumbprint = Get-NormalizedIisSslCertificateThumbprint -SslCertificateThumbprint $SslCertificateThumbprint
 
 Import-Module WebAdministration -ErrorAction SilentlyContinue
 Import-Module IISAdministration -ErrorAction SilentlyContinue
 
-function Test-HttpsBindingHasCertificate {
-    <#
-    .SYNOPSIS
-        Checks whether an IIS HTTPS binding already has a certificate hash.
-
-    .PARAMETER Binding
-        IIS binding object returned by Get-WebBinding.
-    #>
-    param(
-        [Parameter(Mandatory=$true)]
-        $Binding
-    )
-
-    try {
-        $certificateHash = $Binding.certificateHash
-    } catch {
-        $certificateHash = $null
-    }
-
-    if ($null -eq $certificateHash) {
-        return $false
-    }
-
-    if ($certificateHash -is [byte[]]) {
-        return $certificateHash.Length -gt 0
-    }
-
-    return -not [string]::IsNullOrWhiteSpace([string]$certificateHash)
-}
-
 $desiredBindingInformation = "*:${Port}:"
-$existingDesiredBinding = Get-WebBinding -Name $WebsiteName -Protocol $BindingProtocol -ErrorAction SilentlyContinue |
+$existingHttpsBinding = Get-WebBinding -Name $WebsiteName -Protocol 'https' -ErrorAction SilentlyContinue |
     Where-Object { $_.bindingInformation -eq $desiredBindingInformation } |
     Select-Object -First 1
 
-if ($BindingProtocol -eq 'https' -and [string]::IsNullOrWhiteSpace($SslCertificateThumbprint)) {
-    if (-not $existingDesiredBinding -or -not (Test-HttpsBindingHasCertificate -Binding $existingDesiredBinding)) {
-        throw "HTTPS binding for '$WebsiteName' on port $Port requires a value for the SslCertificateThumbprint parameter or an existing HTTPS binding with a certificate. To deploy without a certificate, set BindingProtocol to http."
-    }
-}
+$effectiveBindingProtocol = Resolve-IisBindingProtocol `
+    -BindingProtocol $BindingProtocol `
+    -NormalizedSslCertificateThumbprint $normalizedThumbprint `
+    -ExistingHttpsBinding $existingHttpsBinding `
+    -WebsiteName $WebsiteName `
+    -Port $Port
 
-$normalizedThumbprint = $null
-if ($BindingProtocol -eq 'https' -and -not [string]::IsNullOrWhiteSpace($SslCertificateThumbprint)) {
-    $normalizedThumbprint = ($SslCertificateThumbprint -replace '\s', '').ToUpperInvariant()
+Write-Host "Resolved IIS binding protocol: $effectiveBindingProtocol (requested: $BindingProtocol)."
+Write-Host "##vso[task.setvariable variable=iisEffectiveBindingProtocol]$effectiveBindingProtocol"
+
+if ($effectiveBindingProtocol -eq 'https' -and -not [string]::IsNullOrWhiteSpace($normalizedThumbprint)) {
     $certificate = Get-ChildItem -Path Cert:\LocalMachine\My |
         Where-Object { $_.Thumbprint -eq $normalizedThumbprint } |
         Select-Object -First 1
@@ -170,21 +136,21 @@ if (-not (Get-Website -Name $WebsiteName -ErrorAction SilentlyContinue)) {
     Set-ItemProperty "IIS:\Sites\$WebsiteName" -Name applicationPool -Value $AppPoolName
 }
 
-$desiredBinding = Get-WebBinding -Name $WebsiteName -Protocol $BindingProtocol -ErrorAction SilentlyContinue |
+$desiredBinding = Get-WebBinding -Name $WebsiteName -Protocol $effectiveBindingProtocol -ErrorAction SilentlyContinue |
     Where-Object { $_.bindingInformation -eq $desiredBindingInformation } |
     Select-Object -First 1
 
 if (-not $desiredBinding) {
-    Write-Host "Creating $BindingProtocol binding on port $Port for website: $WebsiteName"
-    New-WebBinding -Name $WebsiteName -Protocol $BindingProtocol -IPAddress '*' -Port $Port
-    $desiredBinding = Get-WebBinding -Name $WebsiteName -Protocol $BindingProtocol -ErrorAction SilentlyContinue |
+    Write-Host "Creating $effectiveBindingProtocol binding on port $Port for website: $WebsiteName"
+    New-WebBinding -Name $WebsiteName -Protocol $effectiveBindingProtocol -IPAddress '*' -Port $Port
+    $desiredBinding = Get-WebBinding -Name $WebsiteName -Protocol $effectiveBindingProtocol -ErrorAction SilentlyContinue |
         Where-Object { $_.bindingInformation -eq $desiredBindingInformation } |
         Select-Object -First 1
 } else {
-    Write-Host "Binding already configured: $BindingProtocol on port $Port"
+    Write-Host "Binding already configured: $effectiveBindingProtocol on port $Port"
 }
 
-if ($BindingProtocol -eq 'https') {
+if ($effectiveBindingProtocol -eq 'https') {
     if ($normalizedThumbprint) {
         if (-not $desiredBinding) {
             throw "Could not locate HTTPS binding for '$WebsiteName' on port $Port after creating it."
@@ -202,7 +168,7 @@ if ($BindingProtocol -eq 'https') {
 Get-WebBinding -Name $WebsiteName -ErrorAction SilentlyContinue |
 Where-Object {
     $parts = $_.bindingInformation -split ':', 3
-    $parts.Count -ge 2 -and $parts[1] -eq [string]$Port -and $_.protocol -ne $BindingProtocol
+    $parts.Count -ge 2 -and $parts[1] -eq [string]$Port -and $_.protocol -ne $effectiveBindingProtocol
 } |
 ForEach-Object {
     $parts = $_.bindingInformation -split ':', 3

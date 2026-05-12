@@ -38,10 +38,10 @@ parameters:
     default: '8000'
   - name: bindingProtocol
     type: string
-    default: 'https'
+    default: 'auto'
   - name: sslCertificateThumbprint
     type: string
-    displayName: 'HTTPS certificate thumbprint (required for new HTTPS bindings)'
+    displayName: 'HTTPS certificate thumbprint (enables HTTPS in auto mode)'
     default: ''
   - name: mudBlazorVersion
     type: string
@@ -61,6 +61,9 @@ parameters:
     values:
       - '$false'
       - '$true'
+  - name: healthScheme
+    type: string
+    default: '$(iisEffectiveBindingProtocol)'
 
 stages:
   - stage: ${{ parameters.stageName }}
@@ -95,7 +98,7 @@ stages:
                     bindingProtocol: ${{ parameters.bindingProtocol }}
                     sslCertificateThumbprint: ${{ parameters.sslCertificateThumbprint }}
                     mudBlazorVersion: ${{ parameters.mudBlazorVersion }}
-                    healthScheme: ${{ parameters.bindingProtocol }}
+                    healthScheme: ${{ parameters.healthScheme }}
                     healthHostName: ${{ parameters.healthHostName }}
                     healthMaxRetries: ${{ parameters.healthMaxRetries }}
                     healthRetryDelaySeconds: ${{ parameters.healthRetryDelaySeconds }}

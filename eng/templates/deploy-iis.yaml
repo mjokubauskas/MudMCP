@@ -27,11 +27,11 @@ parameters:
     default: '8000'
   - name: bindingProtocol
     type: string
-    displayName: 'IIS binding protocol'
-    default: 'https'
+    displayName: 'IIS binding protocol (auto, http, or https)'
+    default: 'auto'
   - name: sslCertificateThumbprint
     type: string
-    displayName: 'HTTPS certificate thumbprint (required for new HTTPS bindings)'
+    displayName: 'HTTPS certificate thumbprint (enables HTTPS in auto mode)'
     default: ''
   - name: mudBlazorVersion
     type: string
@@ -43,8 +43,8 @@ parameters:
     default: '6'
   - name: healthScheme
     type: string
-    displayName: 'Health check URI scheme'
-    default: 'https'
+    displayName: 'Health check URI scheme override'
+    default: '$(iisEffectiveBindingProtocol)'
   - name: healthHostName
     type: string
     displayName: 'Health check host name'
