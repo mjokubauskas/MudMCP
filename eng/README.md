@@ -152,9 +152,9 @@ Scripts can be executed manually for troubleshooting:
 | `iisPhysicalPath` | Deployment path | `C:\inetpub\wwwroot\MudBlazorMcp` |
 | `iisPort` | IIS website binding port | `8000` |
 | `iisBindingProtocol` | IIS website binding protocol | `https` |
-| `iisDevSslCertificateThumbprint` | Optional development HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; define in Azure DevOps variables or variable groups | unset |
-| `iisTestSslCertificateThumbprint` | Optional test HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; define in Azure DevOps variables or variable groups | unset |
-| `iisProdSslCertificateThumbprint` | Optional production HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; define in Azure DevOps variables or variable groups | unset |
+| `iisDevSslCertificateThumbprint` | Development HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; required for new HTTPS bindings unless the binding already has a certificate | unset |
+| `iisTestSslCertificateThumbprint` | Test HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; required for new HTTPS bindings unless the binding already has a certificate | unset |
+| `iisProdSslCertificateThumbprint` | Production HTTPS certificate thumbprint from `Cert:\LocalMachine\My`; required for new HTTPS bindings unless the binding already has a certificate | unset |
 | `deploymentHealthMaxRetries` | Health check retry count | `6` |
 | `deploymentHealthRetryDelaySeconds` | Delay between health check retries | `10` |
 | `mudBlazorVersion` | MudBlazor docs version served by the MCP server | `9.0.0` |
@@ -163,7 +163,22 @@ Scripts can be executed manually for troubleshooting:
 
 Dev, test, and production share the same IIS deployment settings from the pipeline variables above and the same deployment lifecycle from `eng/templates/deploy-iis-stage.yaml`. Only the Azure DevOps environment name and `ASPNETCORE_ENVIRONMENT` value differ by environment.
 
-The shared deployment configures an HTTPS IIS binding by default. Set `iisDevSslCertificateThumbprint`, `iisTestSslCertificateThumbprint`, and `iisProdSslCertificateThumbprint` as Azure DevOps pipeline variables or variable group values when each target server needs the deployment to assign a certificate to the binding. They are intentionally not given YAML defaults, so values from the pipeline UI or variable groups can flow through cleanly. If an environment value is unset or empty, the script preserves any existing certificate binding for that site and port.
+The shared deployment configures an HTTPS IIS binding by default. For each target server, either provide a certificate thumbprint or choose HTTP explicitly:
+
+- **Use HTTPS:** install a certificate in `Cert:\LocalMachine\My`, then set `iisDevSslCertificateThumbprint`, `iisTestSslCertificateThumbprint`, or `iisProdSslCertificateThumbprint` as Azure DevOps pipeline variables or variable group values. If a thumbprint is unset, the script only succeeds when the target site already has an HTTPS binding on the deployment port with a certificate.
+- **Use HTTP:** set `iisBindingProtocol` to `http`. No certificate thumbprint is required.
+
+For development or test servers, you can create and trust a self-signed certificate. Replace `localhost` with the DNS name clients and health checks will use if it is different:
+
+```powershell
+$cert = New-SelfSignedCertificate -DnsName "localhost" -CertStoreLocation "Cert:\LocalMachine\My"
+$certificatePath = Join-Path $env:TEMP "mudmcp-local.cer"
+Export-Certificate -Cert $cert -FilePath $certificatePath
+Import-Certificate -FilePath $certificatePath -CertStoreLocation "Cert:\LocalMachine\Root"
+$cert.Thumbprint
+```
+
+Use the printed thumbprint as the appropriate `iis*SslCertificateThumbprint` variable for that environment.
 
 If a server needs environment-specific application settings, create the appropriate `appsettings.{Environment}.json` file on that server. The deployment preserves server-managed `appsettings.*.json` files. For example, production can use `appsettings.Production.json`:
 
@@ -171,7 +186,7 @@ If a server needs environment-specific application settings, create the appropri
 {
   "MudBlazor": {
     "Repository": {
-      "LocalPath": "C:\\ProgramData\\MudBlazorMcp\\mudblazor-repo"
+      "DataPath": "C:\\ProgramData\\MudBlazorMcp"
     }
   },
   "Logging": {

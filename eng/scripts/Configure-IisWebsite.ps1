@@ -28,8 +28,8 @@
 .PARAMETER SslCertificateThumbprint
     Optional certificate thumbprint to assign to the HTTPS binding. If omitted,
     the script falls back to the IIS_SSL_CERTIFICATE_THUMBPRINT environment
-    variable. If neither is set, any existing HTTPS certificate binding is
-    preserved.
+    variable. If neither is set, an existing HTTPS certificate binding must
+    already exist for the site and port.
 
 .EXAMPLE
     .\Configure-IisWebsite.ps1 -WebsiteName "MudBlazorMcp" -AppPoolName "MudBlazorMcpPool" -PhysicalPath "C:\inetpub\wwwroot\MudBlazorMcp" -Port 8000 -BindingProtocol https -SslCertificateThumbprint "ABCD1234..."
@@ -88,6 +88,52 @@ if ($SslCertificateThumbprint -match '^\$\([^)]+\)$') {
 Import-Module WebAdministration -ErrorAction SilentlyContinue
 Import-Module IISAdministration -ErrorAction SilentlyContinue
 
+function Test-HttpsBindingHasCertificate {
+    param(
+        [Parameter(Mandatory=$true)]
+        $Binding
+    )
+
+    try {
+        $certificateHash = $Binding.certificateHash
+    } catch {
+        $certificateHash = $null
+    }
+
+    if ($null -eq $certificateHash) {
+        return $false
+    }
+
+    if ($certificateHash -is [byte[]]) {
+        return $certificateHash.Length -gt 0
+    }
+
+    return -not [string]::IsNullOrWhiteSpace([string]$certificateHash)
+}
+
+$desiredBindingInformation = "*:${Port}:"
+$existingDesiredBinding = Get-WebBinding -Name $WebsiteName -Protocol $BindingProtocol -ErrorAction SilentlyContinue |
+    Where-Object { $_.bindingInformation -eq $desiredBindingInformation } |
+    Select-Object -First 1
+
+if ($BindingProtocol -eq 'https' -and [string]::IsNullOrWhiteSpace($SslCertificateThumbprint)) {
+    if (-not $existingDesiredBinding -or -not (Test-HttpsBindingHasCertificate -Binding $existingDesiredBinding)) {
+        throw "HTTPS binding for '$WebsiteName' on port $Port requires -SslCertificateThumbprint or an existing HTTPS binding with a certificate. To deploy without a certificate, set -BindingProtocol http."
+    }
+}
+
+$normalizedThumbprint = $null
+if ($BindingProtocol -eq 'https' -and -not [string]::IsNullOrWhiteSpace($SslCertificateThumbprint)) {
+    $normalizedThumbprint = ($SslCertificateThumbprint -replace '\s', '').ToUpperInvariant()
+    $certificate = Get-ChildItem -Path Cert:\LocalMachine\My |
+        Where-Object { $_.Thumbprint -eq $normalizedThumbprint } |
+        Select-Object -First 1
+
+    if (-not $certificate) {
+        throw "SSL certificate with thumbprint '$normalizedThumbprint' was not found in Cert:\LocalMachine\My."
+    }
+}
+
 # Create Application Pool if it doesn't exist
 if (-not (Get-IISAppPool -Name $AppPoolName -ErrorAction SilentlyContinue)) {
     Write-Host "Creating application pool: $AppPoolName"
@@ -117,24 +163,6 @@ if (-not (Get-Website -Name $WebsiteName -ErrorAction SilentlyContinue)) {
     Set-ItemProperty "IIS:\Sites\$WebsiteName" -Name applicationPool -Value $AppPoolName
 }
 
-$desiredBindingInformation = "*:${Port}:"
-
-# Remove any same-port binding using the wrong protocol. This fixes previously
-# released HTTP bindings when the desired release binding is HTTPS.
-Get-WebBinding -Name $WebsiteName -ErrorAction SilentlyContinue |
-Where-Object {
-    $parts = $_.bindingInformation -split ':', 3
-    $parts.Count -ge 2 -and $parts[1] -eq [string]$Port -and $_.protocol -ne $BindingProtocol
-} |
-ForEach-Object {
-    $parts = $_.bindingInformation -split ':', 3
-    $ipAddress = if ([string]::IsNullOrWhiteSpace($parts[0])) { '*' } else { $parts[0] }
-    $hostHeader = if ($parts.Count -ge 3) { $parts[2] } else { '' }
-
-    Write-Host "Removing $($_.protocol) binding on port $Port for website: $WebsiteName"
-    Remove-WebBinding -Name $WebsiteName -Protocol $_.protocol -IPAddress $ipAddress -Port $Port -HostHeader $hostHeader
-}
-
 $desiredBinding = Get-WebBinding -Name $WebsiteName -Protocol $BindingProtocol -ErrorAction SilentlyContinue |
     Where-Object { $_.bindingInformation -eq $desiredBindingInformation } |
     Select-Object -First 1
@@ -150,16 +178,7 @@ if (-not $desiredBinding) {
 }
 
 if ($BindingProtocol -eq 'https') {
-    if (-not [string]::IsNullOrWhiteSpace($SslCertificateThumbprint)) {
-        $normalizedThumbprint = ($SslCertificateThumbprint -replace '\s', '').ToUpperInvariant()
-        $certificate = Get-ChildItem -Path Cert:\LocalMachine\My |
-            Where-Object { $_.Thumbprint -eq $normalizedThumbprint } |
-            Select-Object -First 1
-
-        if (-not $certificate) {
-            throw "SSL certificate with thumbprint '$normalizedThumbprint' was not found in Cert:\LocalMachine\My."
-        }
-
+    if ($normalizedThumbprint) {
         if (-not $desiredBinding) {
             throw "Could not locate HTTPS binding for '$WebsiteName' on port $Port after creating it."
         }
@@ -167,8 +186,24 @@ if ($BindingProtocol -eq 'https') {
         $desiredBinding.AddSslCertificate($normalizedThumbprint, 'My')
         Write-Host "Assigned SSL certificate to HTTPS binding."
     } else {
-        Write-Warning "HTTPS binding configured without a certificate thumbprint. Existing certificate binding, if any, was preserved."
+        Write-Host "Preserved existing SSL certificate for HTTPS binding."
     }
+}
+
+# Remove any same-port binding using the wrong protocol after the desired binding
+# and HTTPS certificate (when required) have been confirmed.
+Get-WebBinding -Name $WebsiteName -ErrorAction SilentlyContinue |
+Where-Object {
+    $parts = $_.bindingInformation -split ':', 3
+    $parts.Count -ge 2 -and $parts[1] -eq [string]$Port -and $_.protocol -ne $BindingProtocol
+} |
+ForEach-Object {
+    $parts = $_.bindingInformation -split ':', 3
+    $ipAddress = if ([string]::IsNullOrWhiteSpace($parts[0])) { '*' } else { $parts[0] }
+    $hostHeader = if ($parts.Count -ge 3) { $parts[2] } else { '' }
+
+    Write-Host "Removing $($_.protocol) binding on port $Port for website: $WebsiteName"
+    Remove-WebBinding -Name $WebsiteName -Protocol $_.protocol -IPAddress $ipAddress -Port $Port -HostHeader $hostHeader
 }
 
 Write-Host "IIS configuration completed."

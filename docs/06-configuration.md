@@ -422,7 +422,7 @@ services:
       - "8000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - MudBlazor__Repository__LocalPath=/app/data/repo
+      - MudBlazor__Repository__DataPath=/app/data
       - Logging__LogLevel__Default=Warning
     volumes:
       - mudblazor-data:/app/data

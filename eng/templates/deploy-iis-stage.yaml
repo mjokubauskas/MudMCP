@@ -41,6 +41,7 @@ parameters:
     default: 'https'
   - name: sslCertificateThumbprint
     type: string
+    displayName: 'HTTPS certificate thumbprint (required for new HTTPS bindings)'
     default: ''
   - name: mudBlazorVersion
     type: string
