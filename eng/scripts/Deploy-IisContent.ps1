@@ -7,7 +7,7 @@
 
 .DESCRIPTION
     Copies application files from the artifact path to the IIS physical path.
-    Preserves server-specific files like logs, data, and production configuration.
+    Preserves server-specific files like logs, data, and environment-specific configuration.
 
 .PARAMETER ArtifactPath
     Path to the published artifact (source).
@@ -95,6 +95,17 @@ if ($mainDll -and $mainDll.DirectoryName) {
 Write-Host "Deploying from: $sourcePath"
 Write-Host "Deploying to: $PhysicalPath"
 
+$envAppSettingsPattern = '^appsettings\.[a-zA-Z0-9_-]+\.json$'
+
+function Test-EnvironmentSpecificAppSettingsFile {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.IO.FileSystemInfo]$Item
+    )
+
+    return -not $Item.PSIsContainer -and $Item.Name -match $envAppSettingsPattern
+}
+
 # Ensure destination directory exists
 if (-not (Test-Path $PhysicalPath)) {
     New-Item -ItemType Directory -Path $PhysicalPath -Force | Out-Null
@@ -102,16 +113,21 @@ if (-not (Test-Path $PhysicalPath)) {
 }
 
 # Clear existing files (except logs, data, and server-managed config)
-# Note: appsettings.Production.json is excluded to preserve server-specific settings.
-# This file should be manually managed on the server and not included in the artifact.
-Get-ChildItem -Path $PhysicalPath -Exclude 'logs', 'data', 'appsettings.Production.json' | 
+# Note: appsettings.{Environment}.json files are excluded to preserve environment-specific settings.
+# These files should be manually managed on the server and not included in the artifact.
+Get-ChildItem -Path $PhysicalPath -Force |
+Where-Object { $_.Name -notin @('logs', 'data') -and -not (Test-EnvironmentSpecificAppSettingsFile -Item $_) } |
 ForEach-Object {
     Remove-Item -Path $_.FullName -Recurse -Force
     Write-Host "Removed: $($_.Name)"
 }
 
-# Copy new files
-Copy-Item -Path "$sourcePath\*" -Destination $PhysicalPath -Recurse -Force
+# Copy new files while leaving environment-specific appsettings files server-managed.
+Get-ChildItem -Path $sourcePath -Force |
+Where-Object { -not (Test-EnvironmentSpecificAppSettingsFile -Item $_) } |
+ForEach-Object {
+    Copy-Item -Path $_.FullName -Destination $PhysicalPath -Recurse -Force
+}
 Write-Host "Application files deployed successfully."
 
 exit 0

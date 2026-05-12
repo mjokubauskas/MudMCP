@@ -1,0 +1,122 @@
+# Copyright (c) 2026 Mud MCP Contributors
+# Licensed under the GNU General Public License v2.0. See LICENSE file in the project root for full license information.
+
+# IIS Deployment Stage Template for MudBlazor MCP Server
+# Keeps dev, test, and prod deployment stages on the same lifecycle and settings.
+
+parameters:
+  - name: stageName
+    type: string
+  - name: displayName
+    type: string
+  - name: dependsOn
+    type: object
+    default: Build
+  - name: condition
+    type: string
+    default: succeeded()
+  - name: deploymentName
+    type: string
+  - name: deploymentDisplayName
+    type: string
+  - name: environmentDisplayName
+    type: string
+  - name: azureEnvironmentName
+    type: string
+  - name: aspnetCoreEnvironment
+    type: string
+  - name: artifactName
+    type: string
+  - name: websiteName
+    type: string
+  - name: appPoolName
+    type: string
+  - name: physicalPath
+    type: string
+  - name: port
+    type: string
+    default: '8000'
+  - name: bindingProtocol
+    type: string
+    default: 'auto'
+  - name: sslCertificateThumbprint
+    type: string
+    displayName: 'HTTPS certificate thumbprint (enables HTTPS in auto mode)'
+    default: ''
+  - name: mudBlazorVersion
+    type: string
+    default: ''
+  - name: healthMaxRetries
+    type: string
+    default: '6'
+  - name: healthRetryDelaySeconds
+    type: string
+    default: '10'
+  - name: healthHostName
+    type: string
+    default: 'localhost'
+  - name: healthSkipCertValidation
+    type: string
+    default: '$false'
+    values:
+      - '$false'
+      - '$true'
+  - name: healthScheme
+    type: string
+    default: '$(iisEffectiveBindingProtocol)'
+
+stages:
+  - stage: ${{ parameters.stageName }}
+    displayName: ${{ parameters.displayName }}
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: ${{ parameters.condition }}
+    variables:
+      - name: aspnetCoreEnvironment
+        value: ${{ parameters.aspnetCoreEnvironment }}
+    jobs:
+      - deployment: ${{ parameters.deploymentName }}
+        displayName: ${{ parameters.deploymentDisplayName }}
+        environment:
+          name: ${{ parameters.azureEnvironmentName }}
+          resourceType: VirtualMachine
+        strategy:
+          runOnce:
+            preDeploy:
+              steps:
+                - script: echo "Preparing ${{ parameters.environmentDisplayName }} deployment..."
+                  displayName: 'Run pre-deployment checks'
+            deploy:
+              steps:
+                - template: deploy-iis.yaml
+                  parameters:
+                    artifactName: ${{ parameters.artifactName }}
+                    websiteName: ${{ parameters.websiteName }}
+                    appPoolName: ${{ parameters.appPoolName }}
+                    physicalPath: ${{ parameters.physicalPath }}
+                    environment: ${{ parameters.aspnetCoreEnvironment }}
+                    port: ${{ parameters.port }}
+                    bindingProtocol: ${{ parameters.bindingProtocol }}
+                    sslCertificateThumbprint: ${{ parameters.sslCertificateThumbprint }}
+                    mudBlazorVersion: ${{ parameters.mudBlazorVersion }}
+                    healthScheme: ${{ parameters.healthScheme }}
+                    healthHostName: ${{ parameters.healthHostName }}
+                    healthMaxRetries: ${{ parameters.healthMaxRetries }}
+                    healthRetryDelaySeconds: ${{ parameters.healthRetryDelaySeconds }}
+                    healthSkipCertValidation: ${{ parameters.healthSkipCertValidation }}
+            routeTraffic:
+              steps:
+                - script: echo "Routing traffic to ${{ parameters.environmentDisplayName }} deployment..."
+                  displayName: 'Route traffic'
+            postRouteTraffic:
+              steps:
+                - script: echo "${{ parameters.environmentDisplayName }} deployment health was verified."
+                  displayName: 'Log health verification'
+            on:
+              failure:
+                steps:
+                  - script: echo "${{ parameters.environmentDisplayName }} deployment failed. Consider rollback."
+                    displayName: 'Handle deployment failure'
+              success:
+                steps:
+                  - script: echo "${{ parameters.environmentDisplayName }} deployment successful!"
+                    displayName: 'Log deployment success'

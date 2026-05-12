@@ -10,9 +10,9 @@ services:
     # image: mudblazor-mcp:latest
     container_name: mudblazor-mcp
     ports:
-      # Host port 5180 matches the default local development URL so existing
-      # mcp.json / claude_desktop_config.json files need no changes.
-      - "5180:8080"
+      # Host port 8000 matches the default local development URL. Update any
+      # existing mcp.json / claude_desktop_config.json entries that use :5180.
+      - "8000:8080"
     volumes:
       # Mount the whole data directory so per-version clones, index files, and
       # versions.json all persist across restarts.

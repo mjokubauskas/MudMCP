@@ -21,7 +21,9 @@ Mud MCP supports two transport mechanisms:
 | Transport | Use Case | Endpoint |
 |-----------|----------|----------|
 | **stdio** | Local CLI clients (recommended) | stdin/stdout |
-| **HTTP** | Web-based clients, remote access | `http://localhost:5180/mcp` |
+| **HTTP** | Web-based clients, remote access | `http://localhost:8000/mcp` |
+
+The HTTP URL shown here is the local `dotnet run` default. IIS deployments use the protocol resolved during deployment: `auto` selects HTTPS when a certificate thumbprint or existing HTTPS IIS binding is available, and otherwise uses HTTP.
 
 ---
 
@@ -49,7 +51,7 @@ Mud MCP supports two transport mechanisms:
       "args": [
         "run",
         "--project",
-        "C:/Mapei/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp",
+        "C:/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp",
         "--",
         "--stdio"
       ]
@@ -93,7 +95,7 @@ dotnet publish -c Release -o ./publish
 {
   "github.copilot.chat.experimental.mcpServers": {
     "mudblazor-mcp": {
-      "command": "C:/Mapei/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp/publish/MudBlazor.Mcp.exe",
+      "command": "C:/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp/publish/MudBlazor.Mcp.exe",
       "args": ["--stdio"]
     }
   }
@@ -158,7 +160,7 @@ Create or edit `claude_desktop_config.json`:
       "args": [
         "run",
         "--project",
-        "C:\\Mapei\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp",
+        "C:\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp",
         "--",
         "--stdio"
       ],
@@ -198,7 +200,7 @@ Create or edit `claude_desktop_config.json`:
 {
   "mcpServers": {
     "mudblazor-mcp": {
-      "command": "C:\\Mapei\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp\\publish\\MudBlazor.Mcp.exe",
+      "command": "C:\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp\\publish\\MudBlazor.Mcp.exe",
       "args": ["--stdio"],
       "env": {
         "DOTNET_ENVIRONMENT": "Production"
@@ -234,7 +236,7 @@ Edit `~/.continue/config.json`:
           "args": [
             "run",
             "--project",
-            "C:/Mapei/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp",
+            "C:/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp",
             "--",
             "--stdio"
           ]
@@ -266,7 +268,7 @@ For clients supporting HTTP transport:
 # Start server in HTTP mode (default)
 dotnet run --project src/MudBlazor.Mcp
 
-# Server available at: http://localhost:5180/mcp
+# Server available at: http://localhost:8000/mcp
 ```
 
 ### Custom Client Integration
@@ -372,7 +374,7 @@ Set the working directory for the server:
     "mudblazor-mcp": {
       "command": "dotnet",
       "args": ["run", "--", "--stdio"],
-      "cwd": "C:\\Mapei\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp"
+      "cwd": "C:\\MudBlazor\\Mcp\\MudBlazor.Mcp\\src\\MudBlazor.Mcp"
     }
   }
 }
@@ -449,10 +451,10 @@ echo '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}' | dotnet run -
 **HTTP:**
 ```bash
 # Health check
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 
 # MCP endpoint
-curl -X POST http://localhost:5180/mcp \
+curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
 ```

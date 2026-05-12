@@ -264,7 +264,7 @@ Standard .NET logging configuration.
     "http": {
       "commandName": "Project",
       "launchBrowser": false,
-      "applicationUrl": "http://localhost:5180",
+      "applicationUrl": "http://localhost:8000",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
@@ -293,7 +293,7 @@ For advanced scenarios:
   "Kestrel": {
     "Endpoints": {
       "Http": {
-        "Url": "http://localhost:5180"
+        "Url": "http://localhost:8000"
       }
     },
     "Limits": {
@@ -303,6 +303,12 @@ For advanced scenarios:
   }
 }
 ```
+
+### IIS Deployment Protocol
+
+The `dotnet run --urls`, `ASPNETCORE_URLS`, and Kestrel settings above control local or container runtime binding. IIS deployment resolves its site binding separately in `eng/scripts/Configure-IisWebsite.ps1`; it does not load certificate thumbprints into Kestrel.
+
+The Azure Pipeline default `iisBindingProtocol` is `auto`. Auto mode selects HTTPS when `iisDevSslCertificateThumbprint`, `iisTestSslCertificateThumbprint`, or `iisProdSslCertificateThumbprint` is supplied, or when the target IIS site already has an HTTPS binding on the deployment port with a certificate. If neither condition is true, deployment falls back to HTTP. The configure step emits `iisEffectiveBindingProtocol`, and the IIS health check uses that resolved value unless `healthScheme` is intentionally overridden.
 
 ---
 
@@ -419,11 +425,10 @@ services:
   mudblazor-mcp:
     build: .
     ports:
-      - "5180:5180"
+      - "8000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:5180
-      - MudBlazor__Repository__LocalPath=/app/data/repo
+      - MudBlazor__Repository__DataPath=/app/data
       - Logging__LogLevel__Default=Warning
     volumes:
       - mudblazor-data:/app/data

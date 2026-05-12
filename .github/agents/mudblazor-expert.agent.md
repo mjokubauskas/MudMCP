@@ -137,7 +137,7 @@ I cannot retrieve MudBlazor component documentation because the MCP server is no
 
 1. **Check if the server is running:**
    ```bash
-   curl http://localhost:5180/health
+   curl http://localhost:8000/health
    ```
 
 2. **Start the server:**

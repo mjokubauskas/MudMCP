@@ -93,7 +93,9 @@ cd src/MudBlazor.Mcp
 dotnet run
 ```
 
-Server runs at `http://localhost:5180/mcp`
+Server runs at `http://localhost:8000/mcp`
+
+These Inspector examples use the local HTTP transport. For IIS deployments, use an HTTPS URL only when the configure step resolved the IIS binding protocol to `https`; otherwise use the HTTP endpoint reported for that deployment.
 
 ---
 
@@ -112,7 +114,7 @@ Or from the solution root:
 ```bash
 npx @modelcontextprotocol/inspector \
   --command "dotnet" \
-  --args "run --project c:/Mapei/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp -- --stdio"
+  --args "run --project c:/MudBlazor/Mcp/MudBlazor.Mcp/src/MudBlazor.Mcp -- --stdio"
 ```
 
 ### For HTTP Transport
@@ -125,7 +127,7 @@ npx @modelcontextprotocol/inspector \
 
 2. In another terminal, start inspector:
    ```bash
-   npx @modelcontextprotocol/inspector --url http://localhost:5180/mcp
+   npx @modelcontextprotocol/inspector --url http://localhost:8000/mcp
    ```
 
 ### Inspector Interface
@@ -420,8 +422,8 @@ dotnet run -- --stdio 2>&1 | Tee-Object -FilePath server.log
 Before testing, verify server health:
 
 ```bash
-# HTTP transport only
-curl http://localhost:5180/health
+# Local HTTP transport
+curl http://localhost:8000/health
 ```
 
 Expected response:
@@ -472,7 +474,7 @@ Error: Failed to clone repository
 
 **Symptom:**
 ```
-Error: connect ECONNREFUSED 127.0.0.1:5180
+Error: connect ECONNREFUSED 127.0.0.1:8000
 ```
 
 **Solutions:**

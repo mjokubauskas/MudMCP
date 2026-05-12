@@ -83,7 +83,7 @@ Supports two transport mechanisms:
 
 | Transport | Use Case | Configuration |
 |-----------|----------|---------------|
-| **HTTP** | Web-based clients, MCP Inspector | Default on port 5180 |
+| **HTTP** | Web-based clients, MCP Inspector | Default on port 8000 |
 | **stdio** | CLI clients, Claude Desktop | `--stdio` flag |
 
 ```csharp

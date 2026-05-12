@@ -11,6 +11,7 @@ Solutions for common issues when running Mud MCP.
 - [MCP Protocol Issues](#mcp-protocol-issues)
 - [IDE Integration Issues](#ide-integration-issues)
 - [Performance Issues](#performance-issues)
+- [IIS Deployment Issues](#iis-deployment-issues)
 - [Logging and Debugging](#logging-and-debugging)
 
 ---
@@ -20,7 +21,7 @@ Solutions for common issues when running Mud MCP.
 ### Health Check (HTTP Mode)
 
 ```bash
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 ```
 
 **Healthy Response:**
@@ -95,14 +96,14 @@ dotnet run --project "C:\Path\To\MudBlazor.Mcp\src\MudBlazor.Mcp"
 
 **Error:**
 ```
-System.IO.IOException: Failed to bind to address http://127.0.0.1:5180
+System.IO.IOException: Failed to bind to address http://127.0.0.1:8000
 ```
 
 **Solutions:**
 
 ```bash
 # Find what's using the port
-netstat -ano | findstr :5180
+netstat -ano | findstr :8000
 
 # Kill the process (replace PID)
 taskkill /PID <PID> /F
@@ -237,7 +238,7 @@ Component index is not ready. The server may still be initializing.
    ```
 3. **Check health endpoint:**
    ```bash
-   curl http://localhost:5180/health
+   curl http://localhost:8000/health
    ```
 
 ### Issue: "No components found"
@@ -512,6 +513,40 @@ Or use short paths:
 
 ---
 
+## IIS Deployment Issues
+
+### Issue: IIS Deployment Used HTTP Unexpectedly
+
+**Cause:**
+The default IIS `auto` protocol mode falls back to HTTP when no usable certificate thumbprint is supplied and the target site does not already have an HTTPS binding on the deployment port with a certificate.
+
+**Solutions:**
+1. Check the configure step log for `Resolved IIS binding protocol: http` or `Resolved IIS binding protocol: https`.
+2. To opt into HTTPS, install the certificate in `Cert:\LocalMachine\My` on the IIS server and set the matching `iisDevSslCertificateThumbprint`, `iisTestSslCertificateThumbprint`, or `iisProdSslCertificateThumbprint` pipeline variable.
+3. To require HTTPS, set `iisBindingProtocol` to `https`; deployment will fail if no thumbprint or existing HTTPS binding certificate is available.
+
+### Issue: IIS Deployment Failed Because a Thumbprint Was Not Found
+
+**Cause:**
+A supplied thumbprint is normalized by removing whitespace and uppercasing it, then validated against `Cert:\LocalMachine\My`. Unresolved Azure DevOps literals such as `$(iisDevSslCertificateThumbprint)` are treated as unset, but any real supplied thumbprint must exist in the certificate store.
+
+**Solutions:**
+1. On the IIS server, run `Get-ChildItem Cert:\LocalMachine\My | Select-Object Subject, Thumbprint`.
+2. Confirm the pipeline variable contains the certificate thumbprint, not the certificate subject or file path.
+3. Reinstall or import the certificate into the local machine `My` store if it is missing.
+
+### Issue: IIS Health Check Used the Wrong Scheme
+
+**Cause:**
+The IIS configure step publishes `iisEffectiveBindingProtocol`, and the deployment template uses that value for health checks. A manual `healthScheme` override can still force a different scheme.
+
+**Solutions:**
+1. Remove custom `healthScheme` overrides unless the deployment intentionally needs one.
+2. Confirm the health check log uses the same `http` or `https` scheme shown in the configure step's resolved protocol log.
+3. For HTTPS loopback checks with a certificate issued to a DNS name, use the DNS name in the environment health host variable or enable loopback certificate validation bypass only for dev/test.
+
+---
+
 ## Logging and Debugging
 
 ### Enable Debug Logging
@@ -587,7 +622,7 @@ dotnet --info
 dotnet list package
 
 # Health check
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 ```
 
 ### Report Issues
@@ -614,13 +649,13 @@ Include in bug reports:
 
 ```bash
 # Health check
-curl http://localhost:5180/health
+curl http://localhost:8000/health
 
 # List tools
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | dotnet run -- --stdio 2>nul
 
 # Test specific tool
-curl -X POST http://localhost:5180/mcp \
+curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_components"},"id":1}'
 ```

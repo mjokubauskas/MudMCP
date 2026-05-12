@@ -50,13 +50,28 @@ variables:
     value: 'mudblazor-mcp-server'
   - name: NUGET_PACKAGES
     value: '$(Pipeline.Workspace)/.nuget/packages'
-  # IIS Configuration
+  # Shared IIS deployment configuration
   - name: iisWebsiteName
     value: 'MudBlazorMcp'
   - name: iisAppPoolName
     value: 'MudBlazorMcpPool'
   - name: iisPhysicalPath
     value: 'C:\inetpub\wwwroot\MudBlazorMcp'
+  - name: iisPort
+    value: '8000'
+  - name: iisBindingProtocol
+    value: 'auto'
+  # Optional variables are supplied from Azure DevOps pipeline variables or
+  # variable groups (not stored in source control):
+  #   iisBindingProtocol accepts auto, http, or https. Auto uses HTTPS when a
+  #   per-environment thumbprint is supplied or an existing HTTPS binding on the
+  #   deployment port already has a certificate; otherwise it falls back to HTTP.
+  #   iisDevSslCertificateThumbprint, iisTestSslCertificateThumbprint, iisProdSslCertificateThumbprint
+  #   iisDevHealthHostName, iisTestHealthHostName, iisProdHealthHostName
+  - name: deploymentHealthMaxRetries
+    value: '6'
+  - name: deploymentHealthRetryDelaySeconds
+    value: '10'
   - name: mudBlazorVersion
     value: '9.0.0'
 
@@ -189,111 +204,73 @@ stages:
               publishLocation: 'Container'
 
   # ============================================
-  # Stage: Deploy to Development
+  # Shared IIS deployment stages
   # ============================================
-  - stage: DeployDev
-    displayName: 'Deploy to Development'
-    dependsOn: Build
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
-    variables:
-      - name: environmentName
-        value: 'Development'
-      - name: aspnetCoreEnvironment
-        value: 'Development'
-    jobs:
-      - deployment: DeployToDevVM
-        displayName: 'Deploy to Dev IIS Server'
-        environment:
-          name: 'mudblazor-mcp-dev'
-          resourceType: VirtualMachine
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - template: templates/deploy-iis.yaml
-                  parameters:
-                    artifactName: '$(artifactName)'
-                    websiteName: '$(iisWebsiteName)'
-                    appPoolName: '$(iisAppPoolName)'
-                    physicalPath: '$(iisPhysicalPath)'
-                    environment: '$(aspnetCoreEnvironment)'
-                    port: 5180
-                    mudBlazorVersion: '$(mudBlazorVersion)'
-            routeTraffic:
-              steps:
-                - script: echo "Routing traffic to new deployment..."
-                  displayName: 'Route traffic'
-            postRouteTraffic:
-              steps:
-                - task: PowerShell@2
-                  displayName: 'Verify deployment health'
-                  inputs:
-                    targetType: 'filePath'
-                    filePath: '$(Build.SourcesDirectory)/eng/scripts/Test-DeploymentHealth.ps1'
-                    arguments: '-Port 5180 -AppPoolName "$(iisAppPoolName)" -PhysicalPath "$(iisPhysicalPath)" -MaxRetries 5 -RetryDelaySeconds 10'
-            on:
-              failure:
-                steps:
-                  - script: echo "Deployment failed. Consider rollback."
-                    displayName: 'Handle deployment failure'
-              success:
-                steps:
-                  - script: echo "Development deployment successful!"
-                    displayName: 'Log deployment success'
+  - template: templates/deploy-iis-stage.yaml
+    parameters:
+      stageName: DeployDev
+      displayName: 'Deploy to Development'
+      dependsOn: Build
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+      deploymentName: DeployToDevVM
+      deploymentDisplayName: 'Deploy to Development IIS Server'
+      environmentDisplayName: 'Development'
+      azureEnvironmentName: 'mudblazor-mcp-dev'
+      aspnetCoreEnvironment: 'Development'
+      artifactName: '$(artifactName)'
+      websiteName: '$(iisWebsiteName)'
+      appPoolName: '$(iisAppPoolName)'
+      physicalPath: '$(iisPhysicalPath)'
+      port: '$(iisPort)'
+      bindingProtocol: '$(iisBindingProtocol)'
+      sslCertificateThumbprint: '$(iisDevSslCertificateThumbprint)'
+      mudBlazorVersion: '$(mudBlazorVersion)'
+      healthHostName: '$(iisDevHealthHostName)'
+      healthMaxRetries: '$(deploymentHealthMaxRetries)'
+      healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'
 
-  # ============================================
-  # Stage: Deploy to Production
-  # ============================================
-  - stage: DeployProd
-    displayName: 'Deploy to Production'
-    dependsOn: Build
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    variables:
-      - name: environmentName
-        value: 'Production'
-      - name: aspnetCoreEnvironment
-        value: 'Production'
-    jobs:
-      - deployment: DeployToProdVM
-        displayName: 'Deploy to Production IIS Server'
-        environment:
-          name: 'mudblazor-mcp-prod'
-          resourceType: VirtualMachine
-        strategy:
-          runOnce:
-            preDeploy:
-              steps:
-                - script: echo "Preparing production deployment..."
-                  displayName: 'Run pre-deployment checks'
-            deploy:
-              steps:
-                - template: templates/deploy-iis.yaml
-                  parameters:
-                    artifactName: '$(artifactName)'
-                    websiteName: '$(iisWebsiteName)'
-                    appPoolName: '$(iisAppPoolName)'
-                    physicalPath: '$(iisPhysicalPath)'
-                    environment: '$(aspnetCoreEnvironment)'
-                    port: 5180
-                    mudBlazorVersion: '$(mudBlazorVersion)'
-            routeTraffic:
-              steps:
-                - script: echo "Routing traffic to new deployment..."
-                  displayName: 'Route traffic'
-            postRouteTraffic:
-              steps:
-                - task: PowerShell@2
-                  displayName: 'Verify deployment health'
-                  inputs:
-                    targetType: 'filePath'
-                    filePath: '$(Build.SourcesDirectory)/eng/scripts/Test-DeploymentHealth.ps1'
-                    arguments: '-Port 5180 -AppPoolName "$(iisAppPoolName)" -PhysicalPath "$(iisPhysicalPath)" -MaxRetries 5 -RetryDelaySeconds 10'
-            on:
-              failure:
-                steps:
-                  - script: echo "Deployment failed. Consider rollback."
-                    displayName: 'Handle deployment failure'
-              success:
-                steps:
-                  - script: echo "Production deployment successful!"
-                    displayName: 'Log deployment success'
+  - template: templates/deploy-iis-stage.yaml
+    parameters:
+      stageName: DeployTest
+      displayName: 'Deploy to Test'
+      dependsOn: Build
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      deploymentName: DeployToTestVM
+      deploymentDisplayName: 'Deploy to Test IIS Server'
+      environmentDisplayName: 'Test'
+      azureEnvironmentName: 'mudblazor-mcp-test'
+      aspnetCoreEnvironment: 'Staging'
+      artifactName: '$(artifactName)'
+      websiteName: '$(iisWebsiteName)'
+      appPoolName: '$(iisAppPoolName)'
+      physicalPath: '$(iisPhysicalPath)'
+      port: '$(iisPort)'
+      bindingProtocol: '$(iisBindingProtocol)'
+      sslCertificateThumbprint: '$(iisTestSslCertificateThumbprint)'
+      mudBlazorVersion: '$(mudBlazorVersion)'
+      healthHostName: '$(iisTestHealthHostName)'
+      healthMaxRetries: '$(deploymentHealthMaxRetries)'
+      healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'
+
+  - template: templates/deploy-iis-stage.yaml
+    parameters:
+      stageName: DeployProd
+      displayName: 'Deploy to Production'
+      dependsOn: DeployTest
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      deploymentName: DeployToProdVM
+      deploymentDisplayName: 'Deploy to Production IIS Server'
+      environmentDisplayName: 'Production'
+      azureEnvironmentName: 'mudblazor-mcp-prod'
+      aspnetCoreEnvironment: 'Production'
+      artifactName: '$(artifactName)'
+      websiteName: '$(iisWebsiteName)'
+      appPoolName: '$(iisAppPoolName)'
+      physicalPath: '$(iisPhysicalPath)'
+      port: '$(iisPort)'
+      bindingProtocol: '$(iisBindingProtocol)'
+      sslCertificateThumbprint: '$(iisProdSslCertificateThumbprint)'
+      mudBlazorVersion: '$(mudBlazorVersion)'
+      healthHostName: '$(iisProdHealthHostName)'
+      healthMaxRetries: '$(deploymentHealthMaxRetries)'
+      healthRetryDelaySeconds: '$(deploymentHealthRetryDelaySeconds)'

@@ -22,13 +22,44 @@ parameters:
     displayName: 'ASP.NET Core environment'
     default: 'Production'
   - name: port
-    type: number
-    displayName: 'HTTP port for the website'
-    default: 5180
+    type: string
+    displayName: 'Port for the website binding'
+    default: '8000'
+  - name: bindingProtocol
+    type: string
+    displayName: 'IIS binding protocol (auto, http, or https)'
+    default: 'auto'
+  - name: sslCertificateThumbprint
+    type: string
+    displayName: 'HTTPS certificate thumbprint (enables HTTPS in auto mode)'
+    default: ''
   - name: mudBlazorVersion
     type: string
     displayName: 'MudBlazor version to serve documentation for'
     default: ''
+  - name: healthMaxRetries
+    type: string
+    displayName: 'Maximum health check retries'
+    default: '6'
+  - name: healthScheme
+    type: string
+    displayName: 'Health check URI scheme override'
+    default: '$(iisEffectiveBindingProtocol)'
+  - name: healthHostName
+    type: string
+    displayName: 'Health check host name'
+    default: 'localhost'
+  - name: healthRetryDelaySeconds
+    type: string
+    displayName: 'Health check retry delay in seconds'
+    default: '10'
+  - name: healthSkipCertValidation
+    type: string
+    displayName: 'Skip HTTPS certificate validation for loopback health checks'
+    default: '$false'
+    values:
+      - '$false'
+      - '$true'
 
 steps:
   # Checkout source to get deployment scripts
@@ -72,7 +103,9 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Configure-IisWebsite.ps1'
-      arguments: '-WebsiteName "${{ parameters.websiteName }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -Port ${{ parameters.port }}'
+      arguments: '-WebsiteName "${{ parameters.websiteName }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -Port ${{ parameters.port }} -BindingProtocol "${{ parameters.bindingProtocol }}"'
+    env:
+      IIS_SSL_CERTIFICATE_THUMBPRINT: ${{ parameters.sslCertificateThumbprint }}
 
   - task: PowerShell@2
     displayName: 'Update environment settings'
@@ -100,4 +133,4 @@ steps:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/eng/scripts/Test-DeploymentHealth.ps1'
-      arguments: '-Port ${{ parameters.port }} -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries 6 -RetryDelaySeconds 10'
+      arguments: '-HostName "${{ parameters.healthHostName }}" -Port ${{ parameters.port }} -Scheme "${{ parameters.healthScheme }}" -AppPoolName "${{ parameters.appPoolName }}" -PhysicalPath "${{ parameters.physicalPath }}" -MaxRetries ${{ parameters.healthMaxRetries }} -RetryDelaySeconds ${{ parameters.healthRetryDelaySeconds }} -SkipCertificateValidation ${{ parameters.healthSkipCertValidation }}'

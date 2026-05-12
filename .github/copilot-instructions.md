@@ -29,7 +29,7 @@ dotnet build
 # Run tests
 dotnet test --no-build
 
-# Run server (HTTP transport on localhost:5180)
+# Run server (HTTP transport on localhost:8000)
 cd src/MudBlazor.Mcp && dotnet run
 
 # Run server (stdio transport for CLI clients)
@@ -256,7 +256,7 @@ dotnet test --no-build
 ```bash
 cd src/MudBlazor.Mcp && dotnet run
 # In another terminal:
-curl -X POST http://localhost:5180/mcp \
+curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"my_new_tool","arguments":{"requiredParam":"test"}},"id":1}'
 ```

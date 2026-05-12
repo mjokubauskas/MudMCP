@@ -109,4 +109,33 @@ public class CategoryMapperTests
         // Assert
         Assert.Null(category);
     }
+
+    [Fact]
+    public async Task InitializeAsync_WithEmptyPath_DoesNotThrow()
+    {
+        // Act & Assert — cached-load fast path passes string.Empty
+        await _mapper.InitializeAsync(string.Empty, CancellationToken.None);
+
+        var categories = _mapper.GetCategories();
+        Assert.NotEmpty(categories);
+    }
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("  ")]
+    public async Task InitializeAsync_WithWhitespacePath_DoesNotThrow(string path)
+    {
+        // Act & Assert — whitespace paths are also accepted since repositoryPath is unused
+        await _mapper.InitializeAsync(path, CancellationToken.None);
+
+        var categories = _mapper.GetCategories();
+        Assert.NotEmpty(categories);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_WithNullPath_ThrowsArgumentNullException()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => _mapper.InitializeAsync(null!, CancellationToken.None));
+    }
 }

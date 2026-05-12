@@ -22,16 +22,16 @@ public sealed class CategoryMapper
     }
 
     /// <summary>
-    /// Initializes the category mapper from the repository.
+    /// Initializes the category mapper with hard-coded category definitions derived from MudBlazor's MenuService.
     /// </summary>
-    /// <param name="repositoryPath">The path to the MudBlazor repository.</param>
+    /// <param name="repositoryPath">
+    /// The path to the MudBlazor repository. Currently unused because categories are hard-coded.
+    /// May be empty or whitespace (e.g. on the cached-load fast path) but must not be <see langword="null"/>.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing the initialization operation.</returns>
     public Task InitializeAsync(string repositoryPath, CancellationToken cancellationToken = default)
     {
-        // Note: repositoryPath is currently unused — categories are hard-coded from MudBlazor's
-        // MenuService. ComponentIndexer passes string.Empty on the cached-load fast path, so we
-        // must not reject empty/whitespace values here.
         ArgumentNullException.ThrowIfNull(repositoryPath);
 
         if (_isInitialized)
