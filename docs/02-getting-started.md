@@ -316,24 +316,44 @@ dotnet run --urls "http://localhost:8080"
 
 ### With Claude Desktop
 
-1. **Edit Claude configuration**
+When running the Mud MCP server locally (HTTP transport), use `mcp-proxy` to bridge Claude Desktop to the HTTP endpoint.
+
+1. **Install `uv`** (if not already installed)
+
+   Open PowerShell and run:
+   ```powershell
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+
+2. **Install `mcp-proxy`** via `uv` (if not already installed)
+
+   ```powershell
+   uv tool install mcp-proxy --system-certs
+   ```
+
+   The `--system-certs` flag ensures your corporate or self-signed certificates are trusted during installation.
+
+3. **Edit Claude Desktop configuration**
 
    Location: `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
-   
+
+   Add the following entry inside `"mcpServers"`:
    ```json
    {
      "mcpServers": {
-       "mudblazor": {
-         "command": "dotnet",
-         "args": ["run", "--project", "C:\\path\\to\\MudBlazor.Mcp\\src\\MudBlazor.Mcp", "--", "--stdio"]
+       "mud-mcp": {
+         "command": "mcp-proxy",
+         "args": ["--transport", "streamablehttp", "--no-verify-ssl", "https://localhost:8000/mcp"]
        }
      }
    }
    ```
 
-2. **Restart Claude Desktop**
+   > **Note:** `--no-verify-ssl` skips TLS certificate validation for `localhost`. This is safe for local development but should not be used against remote servers.
 
-3. **Start chatting** about MudBlazor components
+4. **Restart Claude Desktop**
+
+5. **Start chatting** about MudBlazor components
 
 ---
 
