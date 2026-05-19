@@ -316,7 +316,11 @@ dotnet run --urls "http://localhost:8080"
 
 ### With Claude Desktop
 
-When running the Mud MCP server locally (HTTP transport), use `mcp-proxy` to bridge Claude Desktop to the HTTP endpoint.
+Claude Desktop supports two integration modes. Choose the one that fits your setup.
+
+#### Option A: HTTP Transport via `mcp-proxy` (recommended for local server)
+
+Use this when the Mud MCP server is already running locally (HTTP transport). `mcp-proxy` bridges Claude Desktop to the HTTP endpoint.
 
 1. **Install `uv`** (if not already installed)
 
@@ -354,6 +358,31 @@ When running the Mud MCP server locally (HTTP transport), use `mcp-proxy` to bri
 4. **Restart Claude Desktop**
 
 5. **Start chatting** about MudBlazor components
+
+#### Option B: stdio Transport via `dotnet run`
+
+Use this when you want Claude Desktop to launch the server process itself using the stdio transport. No separate server process or `mcp-proxy` is required.
+
+1. **Edit Claude Desktop configuration**
+
+   Location: `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+
+   ```json
+   {
+     "mcpServers": {
+       "mud-mcp": {
+         "command": "dotnet",
+         "args": ["run", "--project", "C:\\path\\to\\MudBlazor.Mcp\\src\\MudBlazor.Mcp", "--", "--stdio"]
+       }
+     }
+   }
+   ```
+
+   Replace `C:\\path\\to\\MudBlazor.Mcp` with the actual path to your cloned repository.
+
+2. **Restart Claude Desktop**
+
+3. **Start chatting** about MudBlazor components
 
 ---
 
