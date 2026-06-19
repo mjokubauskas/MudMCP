@@ -20,7 +20,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       # Add the MudBlazor version as an environment variable so it can be overridden at runtime
-      - MUDBLAZOR_VERSION=9.0.0
+      - MUDBLAZOR_VERSION=9.5.0
       # Other supported overrides:
       # - MudBlazor__Repository__Url=https://github.com/MudBlazor/MudBlazor.git
       # - MudBlazor__Repository__DataPath=/app/data
